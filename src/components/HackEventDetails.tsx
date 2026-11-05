@@ -1,0 +1,486 @@
+import React, { useState, useEffect } from 'react';
+import { HackEvent, HackerTeam, HackProject, EventRound } from '../types';
+import { hackApi } from '../services/hackApi';
+import { 
+  ArrowLeft, Calendar, MapPin, Trophy, Users, 
+  Clock, Shield, ExternalLink, ThumbsUp, Plus, Github, MessageSquare, Rocket,
+  Layers, CheckCircle2, AlertCircle, Link as LinkIcon
+} from 'lucide-react';
+
+interface HackEventDetailsProps {
+  event: HackEvent;
+  onBack: () => void;
+  onRsvpClick: () => void;
+  onCreateTeamClick: () => void;
+  onSubmitProjectClick: () => void;
+}
+
+export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
+  event,
+  onBack,
+  onRsvpClick,
+  onCreateTeamClick,
+  onSubmitProjectClick,
+}) => {
+  const [activeSubTab, setActiveSubTab] = useState<'rounds' | 'bounties' | 'teams' | 'shipyard'>('rounds');
+  const [teams, setTeams] = useState<HackerTeam[]>([]);
+  const [projects, setProjects] = useState<HackProject[]>([]);
+
+  useEffect(() => {
+    const fetchTeamsAndProjects = async () => {
+      const t = await hackApi.getTeams(event.slug);
+      const p = await hackApi.getProjects(event.slug);
+      setTeams(t);
+      setProjects(p);
+    };
+    fetchTeamsAndProjects();
+  }, [event.slug]);
+
+  const handleUpvote = async (projectId: string) => {
+    const newUpvotes = await hackApi.upvoteProject(projectId);
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, upvotes: newUpvotes } : p));
+  };
+
+  const startDate = new Date(event.startTime).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const rounds = event.rounds || [];
+  const importantLinks = event.importantLinks || [];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-24 pt-16 sm:pt-20">
+      
+      {/* Top Banner Cover */}
+      <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-slate-900 border-b border-slate-200">
+        <img
+          src={event.coverUrl}
+          alt={event.title}
+          className="w-full h-full object-cover opacity-60"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+
+        {/* Back Button */}
+        <div className="absolute top-6 left-4 sm:left-8 z-20">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-nerdBlue font-black text-xs transition-transform hover:scale-105 shadow-md"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Events</span>
+          </button>
+        </div>
+
+        {/* Banner Details */}
+        <div className="absolute bottom-6 left-4 sm:left-8 right-4 sm:right-8 max-w-5xl text-white">
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-bold">
+            <span className="px-3 py-1 rounded-full bg-nerdLime text-nerdDark uppercase tracking-wider">
+              {event.eventType}
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white">
+              {event.venueType.toUpperCase()}
+            </span>
+            <span className="text-slate-300">• {event.rsvpCount || 0} Registered Hackers</span>
+          </div>
+
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight mb-2">
+            {event.title}
+          </h1>
+
+          <p className="text-slate-200 text-xs sm:text-sm font-sans max-w-3xl leading-relaxed">
+            {event.tagline}
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        
+        {/* Quick Info Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border border-slate-200 rounded-2xl p-4 text-xs mb-8 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-[10px] font-bold uppercase">DATE & TIME</div>
+              <div className="font-bold text-slate-900 text-sm">{startDate}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-[10px] font-bold uppercase">VENUE</div>
+              <div className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{event.location}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-lime-50 border border-lime-100 flex items-center justify-center text-nerdDark">
+              <Trophy className="w-5 h-5 text-nerdDark" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-[10px] font-bold uppercase">PRIZE POOL</div>
+              <div className="font-black text-nerdBlue text-sm">
+                {event.prizes.length > 0 ? event.prizes[0].amount : 'Free Swag & Certificate'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sub Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6 text-xs font-bold overflow-x-auto">
+          <button
+            onClick={() => setActiveSubTab('rounds')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+              activeSubTab === 'rounds'
+                ? 'bg-nerdBlue text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-nerdLime" />
+            <span>Event Rounds & Overview ({rounds.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('bounties')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+              activeSubTab === 'bounties'
+                ? 'bg-nerdBlue text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
+            }`}
+          >
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <span>Prize Bounties ({event.prizes.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('teams')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+              activeSubTab === 'teams'
+                ? 'bg-nerdBlue text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Team Matchmaking ({teams.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('shipyard')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+              activeSubTab === 'shipyard'
+                ? 'bg-nerdBlue text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
+            }`}
+          >
+            <Rocket className="w-4 h-4 text-purple-500" />
+            <span>Project Demos ({projects.length})</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Rounds & Overview */}
+        {activeSubTab === 'rounds' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* Event Description */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-base font-bold text-slate-900 mb-3">
+                  About this Event
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                  {event.description}
+                </p>
+
+                {/* Tech tags */}
+                <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap gap-2">
+                  {event.tags.map((t, idx) => (
+                    <span key={idx} className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rounds & Stages (Crucial Feature) */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-nerdBlue" />
+                      <span>Rounds & Progression Stages</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Follow each round deadline to progress to the next stage.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-nerdBlue bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                    {rounds.length} Total Rounds
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {rounds.map((round: EventRound, idx: number) => (
+                    <div
+                      key={round.id || idx}
+                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-nerdBlue text-white font-bold text-xs flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <h4 className="font-bold text-slate-900 text-sm">{round.title}</h4>
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                          round.status === 'active'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {round.status === 'active' ? '● Active Now' : 'Upcoming'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 mb-3 pl-8">
+                        {round.description}
+                      </p>
+
+                      <div className="pl-8 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2 pt-2 border-t border-slate-200/60">
+                        <div className="flex items-center gap-3">
+                          <span>Start: <strong>{round.startDate}</strong></span>
+                          <span>Deadline: <strong className="text-slate-900">{round.endDate}</strong></span>
+                        </div>
+                        {round.submissionType && (
+                          <span className="text-[11px] font-bold text-nerdBlue bg-white px-2 py-0.5 rounded border border-slate-200">
+                            Deliverable: {round.submissionType.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Sidebar Cards */}
+            <div className="space-y-6">
+              
+              {/* RSVP Action Box */}
+              <div className="bg-white border-2 border-nerdBlue/40 rounded-2xl p-6 shadow-md text-center">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 text-nerdBlue flex items-center justify-center mx-auto mb-3 shadow-sm">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <h4 className="text-lg font-bold text-slate-900 mb-1">
+                  Ready to participate?
+                </h4>
+                <p className="text-slate-500 text-xs mb-5">
+                  100% Free Registration. Instant digital QR pass issued to your profile.
+                </p>
+                <button
+                  onClick={onRsvpClick}
+                  className="w-full py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-sm tracking-wide shadow-md transition-all hover:scale-105"
+                >
+                  RSVP & GET PASS
+                </button>
+              </div>
+
+              {/* Important Links & Resources Widget (Crucial Feature) */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <LinkIcon className="w-4 h-4 text-nerdBlue" />
+                  <span>Important Links & Resources</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Access official channels, problem statements, and rules:
+                </p>
+
+                <div className="space-y-2 pt-1">
+                  {importantLinks.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-nerdBlue text-slate-800 hover:text-nerdBlue transition-all group font-bold text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {link.type === 'discord' && <MessageSquare className="w-4 h-4 text-[#5865F2] shrink-0" />}
+                        {link.type === 'github' && <Github className="w-4 h-4 text-slate-800 shrink-0" />}
+                        <span className="truncate">{link.title}</span>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-nerdBlue shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Prize Bounties */}
+        {activeSubTab === 'bounties' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {event.prizes.map((prize, idx) => (
+              <div
+                key={idx}
+                className="bg-white border border-slate-200 hover:border-nerdBlue rounded-2xl p-6 transition-all shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs px-3 py-1 rounded-full bg-blue-50 text-nerdBlue font-bold">
+                    BOUNTY TRACK #{idx + 1}
+                  </span>
+                  <span className="text-xl font-black text-nerdBlue">
+                    {prize.amount}
+                  </span>
+                </div>
+                <h4 className="text-base font-bold text-slate-900 mb-2">{prize.title}</h4>
+                <p className="text-slate-600 text-xs leading-relaxed">{prize.description}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tab 3: Teams / Matchmaking */}
+        {activeSubTab === 'teams' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div>
+                <h4 className="text-base font-bold text-slate-900">Looking for Teammates?</h4>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Post your idea or find solo hackers skilled in AI, Rust, Hardware, or Frontend.
+                </p>
+              </div>
+              <button
+                onClick={onCreateTeamClick}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all"
+              >
+                <Plus className="w-4 h-4 text-nerdLime" />
+                <span>Post Team Listing</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teams.map((t) => (
+                <div key={t.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-bold text-base text-slate-900">{t.teamName}</h4>
+                      <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {t.membersCount}/{t.maxMembers} Members
+                      </span>
+                    </div>
+                    <p className="text-slate-600 text-xs mb-4 leading-relaxed">
+                      "{t.pitch}"
+                    </p>
+                    <div className="mb-4">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Looking For:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {t.lookingForRoles.map((r, i) => (
+                          <span key={i} className="text-xs font-medium px-2.5 py-0.5 rounded-lg bg-blue-50 text-nerdBlue border border-blue-100">
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href={t.contactLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-slate-100 hover:bg-nerdBlue hover:text-white text-xs font-bold text-slate-800 transition-colors"
+                  >
+                    <span>Connect on Discord</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Shipyard Demos */}
+        {activeSubTab === 'shipyard' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div>
+                <h4 className="text-base font-bold text-slate-900">Project Shipyard</h4>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Hacks built during {event.title}. Upvote your favorite builds!
+                </p>
+              </div>
+              <button
+                onClick={onSubmitProjectClick}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all"
+              >
+                <Plus className="w-4 h-4 text-nerdLime" />
+                <span>Submit Your Hack</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {projects.map((proj) => (
+                <div key={proj.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm">
+                  <div className="h-44 bg-slate-100 overflow-hidden relative">
+                    <img src={proj.coverImage} alt={proj.title} className="w-full h-full object-cover" />
+                    <div className="absolute top-3 right-3">
+                      <button
+                        onClick={() => handleUpvote(proj.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 text-nerdBlue text-xs font-bold shadow-md hover:scale-105 transition-all"
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5 text-nerdBlue" />
+                        <span>{proj.upvotes} Upvotes</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-bold text-base text-slate-900 mb-1">{proj.title}</h4>
+                      <p className="text-slate-600 text-xs mb-3">{proj.tagline}</p>
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {proj.tags.map((tag, i) => (
+                          <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                      <div className="text-slate-500">
+                        By: {proj.teamMembers.join(', ')}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {proj.repoUrl && (
+                          <a href={proj.repoUrl} target="_blank" rel="noreferrer" className="text-slate-700 hover:text-nerdBlue font-bold underline">
+                            GitHub
+                          </a>
+                        )}
+                        {proj.demoUrl && (
+                          <a href={proj.demoUrl} target="_blank" rel="noreferrer" className="text-nerdBlue font-bold hover:underline">
+                            Live Demo
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+
+    </div>
+  );
+};
