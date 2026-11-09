@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { HackEvent, HackerTeam, HackProject, EventRound } from '../types';
 import { hackApi } from '../services/hackApi';
+import { SocialShareModal } from './SocialShareModal';
 import { 
   ArrowLeft, Calendar, MapPin, Trophy, Users, 
   Clock, Shield, ExternalLink, ThumbsUp, Plus, Github, MessageSquare, Rocket,
-  Layers, CheckCircle2, AlertCircle, Link as LinkIcon
+  Layers, CheckCircle2, AlertCircle, Link as LinkIcon, Share2, Sparkles, UserCheck, Lock
 } from 'lucide-react';
 
 interface HackEventDetailsProps {
@@ -25,6 +26,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'rounds' | 'bounties' | 'teams' | 'shipyard'>('rounds');
   const [teams, setTeams] = useState<HackerTeam[]>([]);
   const [projects, setProjects] = useState<HackProject[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     const fetchTeamsAndProjects = async () => {
@@ -63,8 +65,8 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
 
-        {/* Back Button */}
-        <div className="absolute top-6 left-4 sm:left-8 z-20">
+        {/* Top Controls: Back & Share */}
+        <div className="absolute top-6 left-4 sm:left-8 right-4 sm:right-8 z-20 flex items-center justify-between">
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-nerdBlue font-black text-xs transition-transform hover:scale-105 shadow-md"
@@ -72,6 +74,22 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Events</span>
           </button>
+
+          <div className="flex items-center gap-2">
+            {event.approvalStatus === 'private' && (
+              <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-md">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Private Event</span>
+              </span>
+            )}
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-nerdLime hover:bg-lime-400 text-nerdDark font-black text-xs transition-transform hover:scale-105 shadow-md"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share & Lu.ma Card</span>
+            </button>
+          </div>
         </div>
 
         {/* Banner Details */}
@@ -292,6 +310,37 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
                 </button>
               </div>
 
+              {/* Organizer Profile Card (Feature to show Organizer Name & Team) */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  EVENT ORGANIZER
+                </div>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={`https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(event.organizerName || 'NerdsAdmin')}`}
+                    alt={event.organizerName || 'Organizer'}
+                    className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 p-0.5"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+                      <span>{event.organizerName || 'Nerds Room Community'}</span>
+                      <UserCheck className="w-4 h-4 text-nerdBlue" />
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {event.organizerOrg || 'Verified Nerds Room Chapter Lead'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 hover:bg-nerdBlue hover:text-white text-slate-800 font-bold text-xs transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Event & Lu.ma Card</span>
+                </button>
+              </div>
+
               {/* Important Links & Resources Widget (Crucial Feature) */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
@@ -480,6 +529,13 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
         )}
 
       </div>
+
+      {showShareModal && (
+        <SocialShareModal
+          event={event}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
 
     </div>
   );

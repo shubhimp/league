@@ -9,6 +9,7 @@ interface CreateEventModalProps {
 }
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onEventCreated }) => {
+  const currentUser = hackApi.getCurrentUser();
   const [title, setTitle] = useState('');
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
@@ -16,6 +17,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
   const [location, setLocation] = useState('Online / Discord');
   const [prizeAmount, setPrizeAmount] = useState('$5,000');
   const [tagsStr, setTagsStr] = useState('AI Agents, Rust, Hardware');
+  const [organizerName, setOrganizerName] = useState(currentUser?.name || 'Aditya Sharma');
+  const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Lead Organizer');
+  const [coverUrl, setCoverUrl] = useState('https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80');
+  const [visibility, setVisibility] = useState<'approved' | 'private'>('approved');
 
   // Rounds State
   const [rounds, setRounds] = useState<EventRound[]>([
@@ -103,6 +108,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
       description: description.trim() || 'Join us for an exciting hackathon with intense building and great prizes.',
       eventType,
       location,
+      organizerName: organizerName.trim() || 'Aditya Sharma',
+      organizerOrg: organizerOrg.trim() || 'Nerds Room Lead Organizer',
+      coverUrl: coverUrl.trim(),
+      approvalStatus: visibility,
       tags,
       prizes,
       rounds,
@@ -205,6 +214,57 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                   placeholder="e.g. $10,000 or ₹2,00,000"
                   className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold text-nerdBlue"
                 />
+              </div>
+            </div>
+
+            {/* Organizer Details & Visibility (Crucial Feature) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Organizer Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={organizerName}
+                  onChange={(e) => setOrganizerName(e.target.value)}
+                  placeholder="e.g. Aditya Sharma or Shubhi Mathur"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Organizer Organization / Chapter</label>
+                <input
+                  type="text"
+                  value={organizerOrg}
+                  onChange={(e) => setOrganizerOrg(e.target.value)}
+                  placeholder="e.g. Nerds Room Campus Lead or MITS Chapter"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Cover Banner URL (Cloudflare / Unsplash)</label>
+                <input
+                  type="url"
+                  value={coverUrl}
+                  onChange={(e) => setCoverUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/... or Cloudflare URL"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Event Visibility</label>
+                <select
+                  value={visibility}
+                  onChange={(e) => setVisibility(e.target.value as 'approved' | 'private')}
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold"
+                >
+                  <option value="approved">🌍 Public (Approved & Live on Website)</option>
+                  <option value="private">🔒 Private (Access via Secret Link Only)</option>
+                </select>
               </div>
             </div>
           </div>

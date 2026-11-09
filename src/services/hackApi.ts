@@ -1,4 +1,16 @@
 import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount, EventApprovalStatus, UserRole, InfrastructureHealth, NestClusterHealth } from '../types';
+import { createClient } from '@supabase/supabase-js';
+
+// Shubhi's Supabase Instance (from CampusOn project)
+export const SUPABASE_URL = 'https://agnscincokkwkhgdwoab.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnbnNjaW5jb2trd2toZ2R3b2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NDQwMzksImV4cCI6MjEwOTAyMDAzOX0.UqUJZXeZRchsaoiLcGwYdlmx4EWPAqa-aXFbIPeuA6E';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
 
 const STORAGE_KEYS = {
   EVENTS: 'nerds_league_events',
@@ -381,6 +393,22 @@ class HackApiService {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   }
 
+  // Google OAuth via Supabase Auth
+  public async signInWithGoogle(): Promise<{ error: any; user?: UserAccount }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        }
+      });
+      return { error };
+    } catch (err: any) {
+      console.warn('Google OAuth error:', err);
+      return { error: err };
+    }
+  }
+
   // Infrastructure & API Config
   public getApiUrl(): string | null {
     if (this.apiUrl) return this.apiUrl;
@@ -576,7 +604,9 @@ class HackApiService {
       isFeatured: Boolean(eventData.isFeatured),
       privateAccessCode,
       organizerId: user.id,
-      organizerName: user.name,
+      organizerName: eventData.organizerName || user.name,
+      organizerOrg: eventData.organizerOrg || 'Nerds Room Lead Organizer',
+      organizerContact: eventData.organizerContact || '',
       coverUrl: eventData.coverUrl || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
       startTime: eventData.startTime || new Date().toISOString(),
       endTime: eventData.endTime || new Date(Date.now() + 86400000 * 2).toISOString(),

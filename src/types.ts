@@ -47,6 +47,8 @@ export interface HackEvent {
   privateAccessCode: string;
   organizerId: string;
   organizerName: string;
+  organizerOrg?: string;
+  organizerContact?: string;
   coverUrl: string;
   startTime: string;
   endTime: string;
