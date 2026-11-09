@@ -60,11 +60,11 @@ export const HackerRSVPModal: React.FC<HackerRSVPModalProps> = ({ event, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8 font-sans">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col font-sans">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-5 text-white flex items-center justify-between">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-nerdLime block">
               Event Registration
@@ -82,7 +82,7 @@ export const HackerRSVPModal: React.FC<HackerRSVPModalProps> = ({ event, onClose
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />

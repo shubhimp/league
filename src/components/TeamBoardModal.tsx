@@ -47,11 +47,11 @@ export const TeamBoardModal: React.FC<TeamBoardModalProps> = ({ eventSlug, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto font-sans">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8 text-xs">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col text-xs">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-nerdLime" />
             <span className="text-sm font-bold uppercase tracking-tight">
@@ -64,7 +64,7 @@ export const TeamBoardModal: React.FC<TeamBoardModalProps> = ({ eventSlug, onClo
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-slate-700 mb-1 font-bold">Team or Project Codename *</label>
             <input

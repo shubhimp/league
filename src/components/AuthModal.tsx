@@ -30,11 +30,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col">
         
         {/* Header with Nerds Room Gradient */}
-        <div className="bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-5 text-white flex items-center justify-between">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5 font-black text-lg tracking-tight">
               <span>nerds room</span>
@@ -79,7 +79,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-sans">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs font-sans flex-1 overflow-y-auto">
           
           {mode === 'signup' && (
             <div>

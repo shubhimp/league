@@ -30,11 +30,11 @@ export const HackerPassModal: React.FC<HackerPassModalProps> = ({ rsvp, eventTit
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[92vh] flex flex-col">
         
         {/* Top Header */}
-        <div className="bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-1.5 font-black text-sm tracking-tight">
             <span>NERDS ROOM LEAGUE PASS</span>
           </div>
@@ -47,7 +47,7 @@ export const HackerPassModal: React.FC<HackerPassModalProps> = ({ rsvp, eventTit
         </div>
 
         {/* Badge Card Container */}
-        <div className="p-6 text-center font-sans">
+        <div className="p-6 text-center font-sans flex-1 overflow-y-auto">
           
           {/* Lanyard Hole visual */}
           <div className="w-14 h-2.5 bg-slate-200 rounded-full mx-auto mb-4" />

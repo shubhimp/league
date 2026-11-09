@@ -152,11 +152,11 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ event, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto font-sans animate-fade-in">
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans animate-fade-in">
+      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto">
         
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-5 text-white flex items-center justify-between">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-5 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-nerdLime">
               <Sparkles className="w-4 h-4" />
@@ -174,7 +174,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ event, onClo
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
           
           {/* Lu.ma-style Preview Card */}
           <div className="space-y-2">

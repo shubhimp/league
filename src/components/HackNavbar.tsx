@@ -69,7 +69,7 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
   return (
     <>
       {/* Floating Pill Nav Bar (Exact Nerds Room Main Site Signature) */}
-      <nav className="fixed top-0 left-0 right-0 z-[100] w-full px-3 sm:px-4 pt-3 sm:pt-4 pointer-events-none">
+      <nav className="fixed top-0 left-0 right-0 z-40 w-full px-3 sm:px-4 pt-3 sm:pt-4 pointer-events-none">
         <div className="relative max-w-[96vw] xl:max-w-7xl mx-auto px-3 sm:px-6 h-12 sm:h-14 flex justify-between items-center gap-2 sm:gap-4 md:gap-6 bg-white/80 backdrop-blur-xl border border-white/70 shadow-lg rounded-full pointer-events-auto transition-all duration-300">
           
           {/* Logo & League Pill */}
