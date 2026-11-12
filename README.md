@@ -80,23 +80,23 @@ league-platform/
 │   │   ├── TeamBoardModal.tsx         # Teammate matchmaking board
 │   │   ├── ProjectShipyardModal.tsx   # Hack project demo submissions
 │   │   ├── OrganizerCheckInModal.tsx  # Entrance ticket scanner check-in desk
-│   │   ├── AuthModal.tsx              # Sign In / Sign Up modal with role selection
-│   │   └── NestSettingsModal.tsx      # Cloud API endpoint configuration
+│   │   ├── AuthModal.tsx              # Self-made Auth + Google OAuth modal
+│   │   ├── SocialShareModal.tsx       # Lu.ma-style OG preview cards & direct social share
+│   │   └── CloudStatusModal.tsx       # Supabase + Cloudinary + Vercel diagnostics
 │   ├── services/
-│   │   └── hackApi.ts                 # Central data service with strict approval filtering
+│   │   └── hackApi.ts                 # Supabase DB + Auth + Cloudinary + Vercel API service
 │   ├── types.ts                       # TypeScript interfaces
 │   ├── HackHubPage.tsx                # Main application page router
 │   ├── App.tsx
 │   ├── main.tsx
 │   └── index.css
-├── server/                            # Optional standalone persistent backend (Node/Express)
-│   ├── src/
-│   │   ├── index.js                   # REST API
-│   │   └── db.js                      # Embedded JSON database
-│   ├── deploy.sh                      # 1-click Linux deployment script
-│   ├── ecosystem.config.cjs           # PM2 daemon configuration
-│   ├── Caddyfile                      # Caddy reverse proxy for SSL
-│   └── package.json
+├── api/                               # Vercel Serverless Functions (OG, Admin Gate, Cloudinary Sign)
+│   ├── admin-verify.ts                # Server-side Master Admin verification
+│   ├── cloudinary-sign.ts             # Signed Cloudinary cover uploads
+│   ├── health.ts                      # Edge + DB connectivity check
+│   └── share.ts                       # Dynamic Lu.ma-style OpenGraph proxy
+├── supabase_league_schema.sql         # PostgreSQL schema & RLS policies
+├── vercel.json                        # Vercel bot OG rewrites & SPA routing
 ├── index.html
 ├── package.json
 ├── tailwind.config.js

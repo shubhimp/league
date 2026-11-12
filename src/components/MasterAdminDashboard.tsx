@@ -4,7 +4,7 @@ import { hackApi, DEMO_USERS } from '../services/hackApi';
 import { 
   ShieldAlert, CheckCircle2, Lock, XCircle, Star, ExternalLink, 
   Search, Users, Layers, Award, Sparkles, KeyRound, Download, 
-  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye
+  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck
 } from 'lucide-react';
 
 interface MasterAdminDashboardProps {
@@ -18,9 +18,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   onBrowseLiveSite,
   onLockSession,
 }) => {
-  // Authentication gate state
+  // Authentication gate state (verified strictly via /api/admin-verify)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(hackApi.isMasterAdminAuthenticated());
+  const [adminIdInput, setAdminIdInput] = useState('');
   const [masterKeyInput, setMasterKeyInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const [authError, setAuthError] = useState('');
 
   // Dashboard state
@@ -32,10 +34,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'events' | 'attendees' | 'roles' | 'security'>('events');
-
-  // Security key update state
-  const [newKey, setNewKey] = useState('');
-  const [keyUpdateMessage, setKeyUpdateMessage] = useState('');
 
   const loadAllData = async () => {
     setLoading(true);
@@ -52,26 +50,27 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   }, [isAuthenticated]);
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (hackApi.verifyMasterKey(masterKeyInput)) {
+    if (!adminIdInput.trim() || !masterKeyInput.trim()) return;
+    setVerifying(true);
+    setAuthError('');
+
+    const res = await hackApi.verifyMasterCredentials(adminIdInput, masterKeyInput);
+    setVerifying(false);
+
+    if (res.success) {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
-      setAuthError('Invalid Master Security Key. Access denied.');
+      setAuthError(res.error || 'Invalid Master Admin ID or Passcode. Access denied.');
     }
-  };
-
-  const handleQuickUnlockDemo = () => {
-    setMasterKeyInput('nerds-core-2026');
-    hackApi.verifyMasterKey('nerds-core-2026');
-    setIsAuthenticated(true);
-    setAuthError('');
   };
 
   const handleLock = () => {
     hackApi.setMasterAdminAuthenticated(false);
     setIsAuthenticated(false);
+    setAdminIdInput('');
     setMasterKeyInput('');
     if (onLockSession) onLockSession();
   };
@@ -122,18 +121,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     document.body.removeChild(link);
   };
 
-  const handleSaveNewMasterKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newKey.length < 6) {
-      setKeyUpdateMessage('Key must be at least 6 characters long.');
-      return;
-    }
-    hackApi.updateMasterKey(newKey);
-    setKeyUpdateMessage('Master Key updated successfully!');
-    setNewKey('');
-    setTimeout(() => setKeyUpdateMessage(''), 3000);
-  };
-
   // ---------------------------------------------------------------------------
   // SECURITY GATE LOCK SCREEN (IF NOT AUTHENTICATED)
   // ---------------------------------------------------------------------------
@@ -155,34 +142,54 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               Master Admin Control Gate
             </h2>
             <p className="text-xs text-blue-200 mt-1 max-w-xs mx-auto">
-              This private portal is strictly restricted to platform owners and the core Nerds Room team.
+              Private core-team gateway verified strictly by server credentials.
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleUnlock} className="p-6 space-y-4 text-xs text-left">
             <div>
+              <label className="block text-slate-700 font-bold mb-1.5">Master Admin ID</label>
+              <div className="relative">
+                <UserCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  value={adminIdInput}
+                  onChange={(e) => {
+                    setAdminIdInput(e.target.value);
+                    setAuthError('');
+                  }}
+                  placeholder="Enter Master Admin ID..."
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2.5 text-slate-900 focus:outline-none transition-all font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
               <label className="block text-slate-700 font-bold mb-1.5 flex items-center justify-between">
-                <span>Enter Master Passphrase</span>
-                <span className="text-[10px] text-slate-400 font-normal">Encrypted Gate</span>
+                <span>Master Passcode</span>
+                <span className="text-[10px] text-slate-400 font-normal">Server-Verified</span>
               </label>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={masterKeyInput}
                   onChange={(e) => {
                     setMasterKeyInput(e.target.value);
                     setAuthError('');
                   }}
-                  placeholder="Enter Master Security Key..."
+                  placeholder="Enter Master Passcode..."
                   className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2.5 text-slate-900 focus:outline-none transition-all font-mono"
                 />
               </div>
               {authError && (
                 <div className="text-[11px] font-bold text-red-600 mt-1.5 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{authError}</span>
                 </div>
               )}
@@ -190,27 +197,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-1.5"
+              disabled={verifying}
+              className="w-full py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4 text-nerdLime" />
-              <span>Unlock Master Console</span>
+              <span>{verifying ? 'Verifying Credentials...' : 'Unlock Master Console'}</span>
             </button>
 
-            {/* Quick Demo Assist */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-center text-[11px]">
               <button
                 type="button"
                 onClick={onBrowseLiveSite}
                 className="text-slate-400 hover:text-slate-700 font-medium"
               >
-                ← Return to Live Site
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickUnlockDemo}
-                className="text-nerdBlue hover:underline font-bold"
-              >
-                Quick Unlock (Demo Key)
+                ← Return to Public Site
               </button>
             </div>
           </form>
@@ -634,9 +634,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
                 <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
                   <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
-                    user.role === 'master_admin'
-                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                      : user.role === 'organizer'
+                    user.role === 'organizer'
                       ? 'bg-blue-100 text-blue-800 border border-blue-200'
                       : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                   }`}>
@@ -651,43 +649,41 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 4: MASTER SECURITY KEY CONFIGURATION */}
+      {/* TAB 4: SERVER SECURITY GATE CONFIGURATION */}
       {/* ===================================================================== */}
       {activeTab === 'security' && (
         <div className="bg-white border-2 border-slate-200/90 rounded-3xl p-6 shadow-sm max-w-xl space-y-4">
-          <div>
-            <h3 className="text-base font-black text-slate-900">Change Master Security Passphrase</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Set a private secret key known only to you and your core team to lock this console.
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-base font-black text-slate-900">Server-Verified Master Gate</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Your Master Admin ID & Passcode are protected exclusively inside server environment variables (never exposed in browser JS).
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase shrink-0">
+              ● Protected
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-slate-700">
+            <div className="font-bold text-slate-900">How to rotate Master Admin credentials:</div>
+            <p className="leading-relaxed">
+              Update <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_ID</code> and{' '}
+              <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_PASS</code> inside{' '}
+              <strong>Vercel Dashboard → Project Settings → Environment Variables</strong> (and <code className="font-mono">.env.local</code> for local testing).
             </p>
           </div>
 
-          <form onSubmit={handleSaveNewMasterKey} className="space-y-3 pt-2">
-            <div>
-              <label className="block text-slate-700 font-bold text-xs mb-1">New Master Passphrase</label>
-              <input
-                type="text"
-                required
-                value={newKey}
-                onChange={(e) => setNewKey(e.target.value)}
-                placeholder="Enter new private master key (min 6 chars)..."
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none"
-              />
-            </div>
-
-            {keyUpdateMessage && (
-              <div className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                {keyUpdateMessage}
-              </div>
-            )}
-
+          <div className="pt-2">
             <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all"
+              type="button"
+              onClick={handleLock}
+              className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
             >
-              Update Security Key
+              <Lock className="w-3.5 h-3.5" />
+              <span>Lock Master Session Immediately</span>
             </button>
-          </form>
+          </div>
         </div>
       )}
 

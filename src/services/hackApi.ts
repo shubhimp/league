@@ -1,15 +1,29 @@
-import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount, EventApprovalStatus, UserRole, InfrastructureHealth, NestClusterHealth } from '../types';
+import {
+  HackEvent,
+  HackerRSVP,
+  HackerTeam,
+  HackProject,
+  UserAccount,
+  EventApprovalStatus,
+  UserRole,
+  InfrastructureHealth,
+} from '../types';
 import { createClient } from '@supabase/supabase-js';
 
-// Shubhi's Supabase Instance (from CampusOn project)
-export const SUPABASE_URL = 'https://agnscincokkwkhgdwoab.supabase.co';
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnbnNjaW5jb2trd2toZ2R3b2FiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NDQwMzksImV4cCI6MjEwOTAyMDAzOX0.UqUJZXeZRchsaoiLcGwYdlmx4EWPAqa-aXFbIPeuA6E';
+// Shubhi's Active Supabase Instance + Cloudinary CDN
+export const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL || 'https://zjlatiflzqssrnzvsmhv.supabase.co';
+export const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_srr8vcA4OFoECer8u6mMTQ_eAaNvgAt';
+export const CLOUDINARY_CLOUD_NAME =
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'hanndfsz';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-  }
+    detectSessionInUrl: true,
+  },
 });
 
 const STORAGE_KEYS = {
@@ -17,14 +31,12 @@ const STORAGE_KEYS = {
   RSVPS: 'nerds_league_rsvps',
   TEAMS: 'nerds_league_teams',
   PROJECTS: 'nerds_league_projects',
-  MY_PASSES: 'nerds_league_my_passes',
   CURRENT_USER: 'nerds_league_current_user',
-  USERS_LIST: 'nerds_league_users_list',
-  API_URL: 'nerds_league_api_url',
+  PENDING_OAUTH_ROLE: 'nerds_league_pending_role',
 };
 
-// Preset demo accounts for quick role-switching
-export const DEMO_USERS: Record<UserRole, UserAccount> = {
+// Preset demo accounts (Student & Organizer test switchers only - never Master Admin)
+export const DEMO_USERS: Record<'student' | 'organizer', UserAccount> = {
   student: {
     id: 'usr_student_01',
     name: 'Rohan Verma',
@@ -32,7 +44,7 @@ export const DEMO_USERS: Record<UserRole, UserAccount> = {
     role: 'student',
     avatarUrl: 'https://api.dicebear.com/7.x/notionists/svg?seed=Rohan',
     githubHandle: 'rohan-builds',
-    college: 'IIT Delhi / Nerds Room Fellow'
+    college: 'IIT Delhi / Nerds Room Fellow',
   },
   organizer: {
     id: 'usr_org_01',
@@ -41,27 +53,19 @@ export const DEMO_USERS: Record<UserRole, UserAccount> = {
     role: 'organizer',
     avatarUrl: 'https://api.dicebear.com/7.x/notionists/svg?seed=Aditya',
     githubHandle: 'adityasharma',
-    college: 'Nerds Room Lead Organizer'
+    college: 'Nerds Room Lead Organizer',
   },
-  master_admin: {
-    id: 'usr_admin_01',
-    name: 'Master Admin',
-    email: 'admin@nerdsroom.org',
-    role: 'master_admin',
-    avatarUrl: 'https://api.dicebear.com/7.x/notionists/svg?seed=AdminNerds',
-    githubHandle: 'nerds-root',
-    college: 'Nerds Room Foundation'
-  }
 };
 
-// Default seed events with approved, private (link-only), and rejected states
+// Initial fallback seed events (used only before Supabase SQL schema is initialized)
 const DEFAULT_EVENTS: HackEvent[] = [
   {
     id: 'evt_hack_01',
     slug: 'nerdhacks-2026',
     title: 'NerdHacks 2026: AI & Systems Jam',
     tagline: '36 Hours of shipping compilers, local LLM agents, and hardware cybernetics.',
-    description: 'The flagship hackathon of Nerds Room. 36 hours of relentless building, open-source hacking, free fuel, and $15,000+ in bounties. Bring your solder irons, your laptops, and your bold ideas.',
+    description:
+      'The flagship hackathon of Nerds Room. 36 hours of relentless building, open-source hacking, free fuel, and $15,000+ in bounties. Bring your solder irons, your laptops, and your bold ideas.',
     eventType: 'hackathon',
     status: 'active',
     approvalStatus: 'approved',
@@ -69,7 +73,9 @@ const DEFAULT_EVENTS: HackEvent[] = [
     privateAccessCode: 'public_live',
     organizerId: 'usr_org_01',
     organizerName: 'Aditya Sharma',
-    coverUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+    organizerOrg: 'Nerds Room Lead Organizer',
+    coverUrl:
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
     startTime: '2026-11-15T09:00:00.000Z',
     endTime: '2026-11-16T21:00:00.000Z',
     location: 'Bengaluru / Hybrid & Global Virtual',
@@ -79,18 +85,26 @@ const DEFAULT_EVENTS: HackEvent[] = [
     tags: ['AI Agents', 'Rust', 'Linux', 'Hardware', 'Open Source'],
     rsvpCount: 168,
     prizes: [
-      { title: 'Grand Grandmaster Hack', amount: '$5,000', description: 'Best overall technical feat and execution' },
-      { title: 'Hardware & IoT Runner', amount: '$3,000', description: 'Physical computing with ESP32 or Raspberry Pi' },
-      { title: 'Local AI Agent Bounty', amount: '$2,500', description: 'Most ingenious offline/local LLM architecture' },
-      { title: 'Wildcard Hack Award', amount: '$1,500', description: 'Most delightfully creative and unconventional project' }
+      {
+        title: 'Grand Grandmaster Hack',
+        amount: '$5,000',
+        description: 'Best overall technical feat and execution',
+      },
+      {
+        title: 'Hardware & IoT Runner',
+        amount: '$3,000',
+        description: 'Physical computing with ESP32 or Raspberry Pi',
+      },
+      {
+        title: 'Local AI Agent Bounty',
+        amount: '$2,500',
+        description: 'Most ingenious offline/local LLM architecture',
+      },
     ],
     schedule: [
       { time: 'Day 1 - 09:00 AM', title: 'Check-in & Breakfast', track: 'General', speaker: 'Core Team' },
-      { time: 'Day 1 - 10:30 AM', title: 'Opening Ceremony & Tracks Release', track: 'Main Stage', speaker: 'Mentors' },
-      { time: 'Day 1 - 11:30 AM', title: 'Hacking Begins! 🚀', track: 'Hacking', speaker: 'All Hackers' },
-      { time: 'Day 1 - 08:00 PM', title: 'Midnight Pizza & Lightning Demos', track: 'Social', speaker: 'Lounge' },
-      { time: 'Day 2 - 04:00 PM', title: 'Code Freeze & Shipyard Submissions', track: 'Deadline', speaker: 'Portal' },
-      { time: 'Day 2 - 06:00 PM', title: 'Live Demos & Closing Ceremony', track: 'Main Stage', speaker: 'Judges' }
+      { time: 'Day 1 - 10:30 AM', title: 'Opening Ceremony & Tracks', track: 'Main Stage', speaker: 'Mentors' },
+      { time: 'Day 2 - 06:00 PM', title: 'Live Demos & Closing Ceremony', track: 'Main Stage', speaker: 'Judges' },
     ],
     rounds: [
       {
@@ -101,7 +115,7 @@ const DEFAULT_EVENTS: HackEvent[] = [
         endDate: '2026-11-05',
         description: 'Submit your team members, preferred technical track, and a 2-paragraph project idea proposal.',
         status: 'active',
-        submissionType: 'deck'
+        submissionType: 'deck',
       },
       {
         id: 'rnd_2',
@@ -109,9 +123,9 @@ const DEFAULT_EVENTS: HackEvent[] = [
         title: 'Round 2: 36-Hour Hackathon & Code Freeze',
         startDate: '2026-11-15',
         endDate: '2026-11-16',
-        description: 'Live hacking period. Push code to a public GitHub repo and record a 2-minute Loom/YouTube demo.',
+        description: 'Live hacking period. Push code to a public GitHub repo and record a 2-minute demo.',
         status: 'upcoming',
-        submissionType: 'github'
+        submissionType: 'github',
       },
       {
         id: 'rnd_3',
@@ -119,24 +133,24 @@ const DEFAULT_EVENTS: HackEvent[] = [
         title: 'Round 3: Grand Finale & Live Jury Demos',
         startDate: '2026-11-16',
         endDate: '2026-11-16',
-        description: 'Top 10 shortlisted teams pitch live on stage in front of judges, venture founders, and community leads.',
+        description: 'Top 10 shortlisted teams pitch live on stage in front of judges.',
         status: 'upcoming',
-        submissionType: 'offline'
-      }
+        submissionType: 'offline',
+      },
     ],
     importantLinks: [
       { id: 'lnk_1', title: 'Official Discord Channel', url: 'https://discord.gg/nerdsroom', type: 'discord' },
       { id: 'lnk_2', title: 'Rulebook & Problem Statements', url: 'https://notion.so/nerdsroom/rulebook', type: 'rulebook' },
       { id: 'lnk_3', title: 'WhatsApp Attendees Group', url: 'https://chat.whatsapp.com/nerdsroom', type: 'whatsapp' },
-      { id: 'lnk_4', title: 'GitHub Starter Templates', url: 'https://github.com/nerdsroom', type: 'github' }
-    ]
+    ],
   },
   {
     id: 'evt_hack_02',
     slug: 'kernel-and-terminal-sprint',
     title: 'Kernel & Cybernetics Speedrun',
     tagline: 'Write a tiny OS, custom shell, or bootloader in a weekend.',
-    description: 'A deep-dive low-level systems hackathon. Build hyper-minimalist tools, terminal TUIs, RISC-V emulators, and networked daemons on bare metal.',
+    description:
+      'A deep-dive low-level systems hackathon. Build hyper-minimalist tools, terminal TUIs, RISC-V emulators, and networked daemons on bare metal.',
     eventType: 'hackathon',
     status: 'upcoming',
     approvalStatus: 'approved',
@@ -144,7 +158,9 @@ const DEFAULT_EVENTS: HackEvent[] = [
     privateAccessCode: 'public_live',
     organizerId: 'usr_org_01',
     organizerName: 'Aditya Sharma',
-    coverUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+    organizerOrg: 'Nerds Room Core Systems',
+    coverUrl:
+      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
     startTime: '2026-12-05T10:00:00.000Z',
     endTime: '2026-12-06T18:00:00.000Z',
     location: 'Delhi NCR & Live Stream',
@@ -155,13 +171,8 @@ const DEFAULT_EVENTS: HackEvent[] = [
     rsvpCount: 84,
     prizes: [
       { title: 'Iron Ring Low-Level Award', amount: '$2,500', description: 'Most impressive bare-metal achievement' },
-      { title: 'Best TUI / CLI Application', amount: '$1,000', description: 'Most addictive terminal interface tool' }
     ],
-    schedule: [
-      { time: '10:00 AM', title: 'Assembler & Bootloader Kickoff', track: 'Dev' },
-      { time: '01:00 PM', title: 'Memory Safety vs Unsafe Architecture', track: 'Workshop' },
-      { time: '05:00 PM', title: 'Submissions & Benchmarking', track: 'Judging' }
-    ],
+    schedule: [],
     rounds: [
       {
         id: 'rnd_k1',
@@ -171,7 +182,7 @@ const DEFAULT_EVENTS: HackEvent[] = [
         endDate: '2026-12-01',
         description: 'Submit an architectural RFC for your kernel, driver, or custom emulator.',
         status: 'upcoming',
-        submissionType: 'link'
+        submissionType: 'link',
       },
       {
         id: 'rnd_k2',
@@ -181,130 +192,13 @@ const DEFAULT_EVENTS: HackEvent[] = [
         endDate: '2026-12-06',
         description: 'Code submission and automated benchmark testing on bare-metal rigs.',
         status: 'upcoming',
-        submissionType: 'github'
-      }
+        submissionType: 'github',
+      },
     ],
     importantLinks: [
       { id: 'lnk_k1', title: 'Discord #kernel-sprint', url: 'https://discord.gg/nerdsroom', type: 'discord' },
-      { id: 'lnk_k2', title: 'Benchmark Spec Guidelines', url: 'https://github.com/nerdsroom', type: 'rulebook' }
-    ]
+    ],
   },
-  {
-    id: 'evt_hack_03',
-    slug: 'closed-alpha-web3-defense',
-    title: 'Closed Alpha: Autonomous Web3 Security Sprint',
-    tagline: 'Private invite-only sprint auditing EVM contracts with autonomous fuzzing agents.',
-    description: 'This is a PRIVATE event accessible only via invitation or direct secret link. Hackers stress-test decentralized contracts and earn private bounties.',
-    eventType: 'hackathon',
-    status: 'active',
-    approvalStatus: 'private',
-    isFeatured: false,
-    privateAccessCode: 'secret_alpha_882',
-    organizerId: 'usr_org_01',
-    organizerName: 'Aditya Sharma',
-    coverUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80',
-    startTime: '2026-11-28T14:00:00.000Z',
-    endTime: '2026-11-29T20:00:00.000Z',
-    location: 'Private Virtual War-Room',
-    venueType: 'virtual',
-    discordChannel: '#private-war-room',
-    maxCapacity: 50,
-    tags: ['Security', 'Solidity', 'Fuzzing', 'Private'],
-    rsvpCount: 24,
-    prizes: [
-      { title: 'Critical Vulnerability Bounty', amount: '$7,500', description: 'Zero-day smart contract bug submission' }
-    ],
-    schedule: [
-      { time: '02:00 PM', title: 'Private Briefing & Target Release', track: 'Briefing' },
-      { time: '04:00 PM', title: 'Automated Fuzzing Window', track: 'Sprint' }
-    ],
-    rounds: [
-      {
-        id: 'rnd_priv_1',
-        roundNumber: 1,
-        title: 'Proof-of-Concept Exploit Submission',
-        startDate: '2026-11-28',
-        endDate: '2026-11-29',
-        description: 'Submit private reproducible test vector.',
-        status: 'active',
-        submissionType: 'github'
-      }
-    ],
-    importantLinks: [
-      { id: 'lnk_p1', title: 'Private War-Room Discord', url: 'https://discord.gg/nerdsroom', type: 'discord' }
-    ]
-  },
-  {
-    id: 'evt_hack_04',
-    slug: 'unverified-token-pumper',
-    title: 'Unverified Meme Coin Launchathon',
-    tagline: 'Pump & dump event without technical substance.',
-    description: 'This event was reviewed by Master Admin and REJECTED due to violation of Nerds Room engineering standards and anti-spam community guidelines.',
-    eventType: 'hackathon',
-    status: 'upcoming',
-    approvalStatus: 'rejected',
-    isFeatured: false,
-    privateAccessCode: 'rejected_sample',
-    organizerId: 'usr_org_external',
-    organizerName: 'External Submitter',
-    coverUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=1200&q=80',
-    startTime: '2026-12-01T10:00:00.000Z',
-    endTime: '2026-12-02T18:00:00.000Z',
-    location: 'Online',
-    venueType: 'virtual',
-    discordChannel: '#none',
-    maxCapacity: 100,
-    tags: ['Spam', 'Rejected'],
-    rsvpCount: 0,
-    prizes: [],
-    schedule: [],
-    rounds: [],
-    importantLinks: []
-  },
-  {
-    id: 'evt_work_01',
-    slug: 'linux-containers-masterclass',
-    title: 'Zero to Systems: Linux Containers Masterclass',
-    tagline: 'Namespaces, cgroups, process isolation, and bare-metal orchestration.',
-    description: 'Learn how containers truly work from scratch without relying on bloated abstractions. We implement a miniature container runtime in 500 lines of C/Rust.',
-    eventType: 'workshop',
-    status: 'active',
-    approvalStatus: 'approved',
-    isFeatured: false,
-    privateAccessCode: 'public_live',
-    organizerId: 'usr_org_01',
-    organizerName: 'Aditya Sharma',
-    coverUrl: 'https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80',
-    startTime: '2026-11-02T16:00:00.000Z',
-    endTime: '2026-11-02T18:30:00.000Z',
-    location: 'Nerds Room Community Hall & Live Stream',
-    venueType: 'hybrid',
-    discordChannel: '#containers-workshop',
-    maxCapacity: 300,
-    tags: ['Linux', 'DevOps', 'Containers', 'Rust'],
-    rsvpCount: 210,
-    prizes: [],
-    schedule: [
-      { time: '04:00 PM', title: 'Linux Namespaces Demystified', track: 'Lecture' },
-      { time: '04:45 PM', title: 'Hands-on: Write a Mini Runtime', track: 'Hands-on' }
-    ],
-    rounds: [
-      {
-        id: 'rnd_w1',
-        roundNumber: 1,
-        title: 'Live Workshop & Interactive Coding',
-        startDate: '2026-11-02',
-        endDate: '2026-11-02',
-        description: 'Interactive session with Q&A.',
-        status: 'active',
-        submissionType: 'link'
-      }
-    ],
-    importantLinks: [
-      { id: 'lnk_w1', title: 'Community Discord Stage', url: 'https://discord.gg/nerdsroom', type: 'discord' },
-      { id: 'lnk_w2', title: 'Workshop Starter Repo', url: 'https://github.com/nerdsroom', type: 'github' }
-    ]
-  }
 ];
 
 const DEFAULT_RSVPS: HackerRSVP[] = [
@@ -321,36 +215,139 @@ const DEFAULT_RSVPS: HackerRSVP[] = [
     passCode: 'NR-A89F2',
     checkedIn: true,
     checkedInAt: '2026-10-25T11:20:00.000Z',
-    createdAt: '2026-10-15T10:00:00.000Z'
+    createdAt: '2026-10-15T10:00:00.000Z',
   },
-  {
-    id: 'rsvp_demo_02',
-    eventId: 'evt_hack_02',
-    hackerName: 'Rohan Verma',
-    email: 'rohan@student.nerdsroom.org',
-    githubHandle: 'rohan-builds',
-    discordTag: 'rohan#1337',
-    hackerRole: 'Systems Hacker',
-    teamName: 'Solo Hacker',
-    dietaryNeeds: 'Standard',
-    passCode: 'NR-C41B7',
-    checkedIn: false,
-    checkedInAt: null,
-    createdAt: '2026-10-18T14:30:00.000Z'
-  }
 ];
+
+// Row <-> Domain Mappers for Supabase snake_case columns
+function mapRowToEvent(row: any): HackEvent {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    tagline: row.tagline || '',
+    description: row.description || '',
+    eventType: row.event_type || 'hackathon',
+    status: row.status || 'active',
+    approvalStatus: row.approval_status || 'approved',
+    isFeatured: Boolean(row.is_featured),
+    privateAccessCode: row.private_access_code || 'public_live',
+    organizerId: row.organizer_id || '',
+    organizerName: row.organizer_name || 'Nerds Room Community',
+    organizerOrg: row.organizer_org || 'Nerds Room Lead Organizer',
+    organizerContact: row.organizer_contact || '',
+    coverUrl:
+      row.cover_url ||
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+    startTime: row.start_time || new Date().toISOString(),
+    endTime: row.end_time || new Date().toISOString(),
+    location: row.location || 'Online / Discord',
+    venueType: row.venue_type || 'hybrid',
+    discordChannel: row.discord_channel || '#general',
+    maxCapacity: row.max_capacity || 300,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    prizes: Array.isArray(row.prizes) ? row.prizes : [],
+    schedule: Array.isArray(row.schedule) ? row.schedule : [],
+    rounds: Array.isArray(row.rounds) ? row.rounds : [],
+    importantLinks: Array.isArray(row.important_links) ? row.important_links : [],
+    rsvpCount: row.rsvp_count ?? 0,
+  };
+}
+
+function mapEventToRow(evt: HackEvent) {
+  return {
+    id: evt.id,
+    slug: evt.slug,
+    title: evt.title,
+    tagline: evt.tagline,
+    description: evt.description,
+    event_type: evt.eventType,
+    status: evt.status,
+    approval_status: evt.approvalStatus,
+    is_featured: evt.isFeatured,
+    private_access_code: evt.privateAccessCode,
+    organizer_id: evt.organizerId,
+    organizer_name: evt.organizerName,
+    organizer_org: evt.organizerOrg || 'Nerds Room Lead Organizer',
+    organizer_contact: evt.organizerContact || '',
+    cover_url: evt.coverUrl,
+    start_time: evt.startTime,
+    end_time: evt.endTime,
+    location: evt.location,
+    venue_type: evt.venueType,
+    discord_channel: evt.discordChannel,
+    max_capacity: evt.maxCapacity,
+    tags: evt.tags,
+    prizes: evt.prizes,
+    schedule: evt.schedule,
+    rounds: evt.rounds,
+    important_links: evt.importantLinks,
+    rsvp_count: evt.rsvpCount ?? 0,
+  };
+}
+
+function mapRowToRsvp(row: any): HackerRSVP {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    hackerName: row.hacker_name,
+    email: row.email,
+    githubHandle: row.github_handle || '',
+    discordTag: row.discord_tag || '',
+    hackerRole: row.hacker_role || 'Fullstack Builder',
+    teamName: row.team_name || 'Solo Hacker',
+    dietaryNeeds: row.dietary_needs || 'Standard',
+    passCode: row.pass_code,
+    checkedIn: Boolean(row.checked_in),
+    checkedInAt: row.checked_in_at || null,
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+}
+
+function mapRowToTeam(row: any): HackerTeam {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    teamName: row.team_name,
+    pitch: row.pitch,
+    lookingForRoles: Array.isArray(row.looking_for_roles) ? row.looking_for_roles : [],
+    contactLink: row.contact_link || 'https://discord.gg/nerdsroom',
+    membersCount: row.members_count || 1,
+    maxMembers: row.max_members || 4,
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+}
+
+function mapRowToProject(row: any): HackProject {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    roundId: row.round_id || undefined,
+    title: row.title,
+    tagline: row.tagline || '',
+    repoUrl: row.repo_url,
+    demoUrl: row.demo_url || '',
+    coverImage:
+      row.cover_image ||
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    teamMembers: Array.isArray(row.team_members) ? row.team_members : [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    upvotes: row.upvotes ?? 1,
+    submittedByEmail: row.submitted_by_email || undefined,
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+}
 
 class HackApiService {
   private currentUser: UserAccount | null = null;
-  private apiUrl: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.initializeLocalStorage();
+      this.initializeLocalCache();
     }
   }
 
-  private initializeLocalStorage() {
+  private initializeLocalCache() {
     if (!localStorage.getItem(STORAGE_KEYS.EVENTS)) {
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(DEFAULT_EVENTS));
     }
@@ -358,198 +355,401 @@ class HackApiService {
       localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(DEFAULT_RSVPS));
     }
     const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    this.currentUser = savedUser ? JSON.parse(savedUser) : DEMO_USERS.student;
+    this.currentUser = savedUser ? JSON.parse(savedUser) : null;
   }
 
-  // Auth Methods
+  // ===========================================================================
+  // 1. AUTHENTICATION (Self-Made Email/Password + Google OAuth via Supabase)
+  // ===========================================================================
+
   public getCurrentUser(): UserAccount | null {
     return this.currentUser;
   }
 
-  public switchRole(role: UserRole): UserAccount {
+  private setCurrentUser(user: UserAccount | null) {
+    this.currentUser = user;
+    if (typeof window !== 'undefined') {
+      if (user) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      }
+    }
+  }
+
+  public switchRole(role: 'student' | 'organizer'): UserAccount {
     const user = DEMO_USERS[role];
-    this.currentUser = user;
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    this.setCurrentUser(user);
     return user;
   }
 
-  public login(email: string, role: UserRole): UserAccount {
-    const name = email.split('@')[0].replace(/[._-]/g, ' ');
-    const user: UserAccount = {
-      id: 'usr_' + Date.now(),
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email: email.toLowerCase(),
-      role,
-      avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}`,
-      githubHandle: name.replace(/\s+/g, '').toLowerCase()
+  public async signUpWithEmail(params: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'student' | 'organizer';
+  }): Promise<{ user?: UserAccount; requiresConfirmation?: boolean; error?: string }> {
+    const emailClean = params.email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signUp({
+      email: emailClean,
+      password: params.password,
+      options: {
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        data: {
+          full_name: params.name.trim(),
+          role: params.role,
+        },
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    const userId = data.user?.id || 'usr_' + Date.now();
+    const profile: UserAccount = {
+      id: userId,
+      name: params.name.trim(),
+      email: emailClean,
+      role: params.role,
+      avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(params.name.trim())}`,
+      githubHandle: params.name.trim().replace(/\s+/g, '').toLowerCase(),
+      college: params.role === 'organizer' ? 'Event Organizer' : 'Student Hacker',
     };
-    this.currentUser = user;
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-    return user;
+
+    // Save profile in Supabase league_profiles table
+    await this.upsertProfile(profile, 'email');
+
+    if (data.session) {
+      this.setCurrentUser(profile);
+      return { user: profile };
+    }
+
+    // If Supabase requires email confirmation, inform the UI cleanly
+    return { user: profile, requiresConfirmation: true };
   }
 
-  public logout() {
-    this.currentUser = null;
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  public async signInWithEmail(
+    email: string,
+    password: string,
+    fallbackRole: 'student' | 'organizer' = 'student'
+  ): Promise<{ user?: UserAccount; error?: string }> {
+    const emailClean = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: emailClean,
+      password,
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    const user = await this.resolveUserFromAuthUser(data.user, fallbackRole);
+    this.setCurrentUser(user);
+    return { user };
   }
 
-  // Google OAuth via Supabase Auth
-  public async signInWithGoogle(): Promise<{ error: any; user?: UserAccount }> {
+  public async signInWithGoogle(preferredRole: 'student' | 'organizer' = 'student'): Promise<{ error?: string }> {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.PENDING_OAUTH_ROLE, preferredRole);
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        }
+        },
       });
-      return { error };
+      if (error) return { error: error.message };
+      return {};
     } catch (err: any) {
-      console.warn('Google OAuth error:', err);
-      return { error: err };
+      return { error: err?.message || 'Google OAuth failed to initialize.' };
     }
   }
 
-  // Infrastructure & API Config
-  public getApiUrl(): string | null {
-    if (this.apiUrl) return this.apiUrl;
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEYS.API_URL);
-      if (stored !== null) return stored || null;
+  public async syncSupabaseSession(): Promise<UserAccount | null> {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) {
+        return this.currentUser;
+      }
+      const pendingRole =
+        (typeof window !== 'undefined'
+          ? (localStorage.getItem(STORAGE_KEYS.PENDING_OAUTH_ROLE) as 'student' | 'organizer' | null)
+          : null) || 'student';
+
+      const user = await this.resolveUserFromAuthUser(data.session.user, pendingRole);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.PENDING_OAUTH_ROLE);
+      }
+      this.setCurrentUser(user);
+      return user;
+    } catch {
+      return this.currentUser;
     }
-    return 'https://api.nerdsroom.org';
   }
 
-  public setApiUrl(url: string | null) {
-    this.apiUrl = url;
-    if (url) {
-      localStorage.setItem(STORAGE_KEYS.API_URL, url);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.API_URL, '');
+  private async resolveUserFromAuthUser(
+    authUser: any,
+    defaultRole: 'student' | 'organizer'
+  ): Promise<UserAccount> {
+    const email = (authUser.email || '').toLowerCase();
+    const meta = authUser.user_metadata || {};
+
+    // Check existing profile in league_profiles first
+    try {
+      const { data: existing } = await supabase
+        .from('league_profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          id: existing.id,
+          name: existing.name,
+          email: existing.email,
+          role: existing.role as UserRole,
+          avatarUrl: existing.avatar_url || meta.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(existing.name)}`,
+          githubHandle: existing.github_handle || undefined,
+          college: existing.college || undefined,
+        };
+      }
+    } catch {
+      // Ignore if league_profiles doesn't exist yet
+    }
+
+    const name = meta.full_name || meta.name || email.split('@')[0] || 'Hacker';
+    const role: UserRole = meta.role || defaultRole;
+    const account: UserAccount = {
+      id: authUser.id,
+      name,
+      email,
+      role,
+      avatarUrl:
+        meta.avatar_url ||
+        meta.picture ||
+        `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}`,
+      githubHandle: name.replace(/\s+/g, '').toLowerCase(),
+      college: role === 'organizer' ? 'Event Organizer' : 'Nerds Room Member',
+    };
+
+    await this.upsertProfile(account, authUser.app_metadata?.provider || 'google');
+    return account;
+  }
+
+  private async upsertProfile(user: UserAccount, provider: string) {
+    try {
+      await supabase.from('league_profiles').upsert({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        avatar_url: user.avatarUrl,
+        github_handle: user.githubHandle || null,
+        college: user.college || null,
+        auth_provider: provider,
+      });
+    } catch {
+      // Graceful fallback if table hasn't been created yet
     }
   }
+
+  public async logout() {
+    this.setCurrentUser(null);
+    this.setMasterAdminAuthenticated(false);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore offline errors
+    }
+  }
+
+  // ===========================================================================
+  // 2. CLOUD HEALTH & CLOUDINARY SIGNED UPLOAD
+  // ===========================================================================
 
   public async checkClusterHealth(): Promise<InfrastructureHealth> {
-    const url = this.getApiUrl();
-    if (!url) {
-      return {
-        status: 'online',
-        platform: 'Nerds Room Local Sandbox (Fast In-Memory/Storage)',
-        latencyMs: 1
-      };
+    const startTime = Date.now();
+    let schemaReady = false;
+    let cloudinaryConfigured = false;
+
+    try {
+      const { error } = await supabase
+        .from('league_events')
+        .select('id', { count: 'exact', head: true });
+      schemaReady = !error;
+    } catch {
+      schemaReady = false;
     }
 
     try {
-      const startTime = Date.now();
-      const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(4000) });
-      const latencyMs = Date.now() - startTime;
+      const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const data = await res.json();
+        cloudinaryConfigured = Boolean(data.cloudinaryConfigured);
+        if (typeof data.schemaReady === 'boolean') schemaReady = data.schemaReady;
+      }
+    } catch {
+      // Ignore if health endpoint unavailable
+    }
+
+    return {
+      status: 'online',
+      platform: schemaReady ? 'Supabase + Vercel + Cloudinary' : 'Supabase Connected (Local Cache Active)',
+      latencyMs: Date.now() - startTime,
+      schemaReady,
+      cloudinaryConfigured,
+    };
+  }
+
+  public async uploadCoverToCloudinary(file: File): Promise<{ url?: string; error?: string }> {
+    try {
+      const signRes = await fetch('/api/cloudinary-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: 'nerds-room-league' }),
+      });
+
+      const signData = await signRes.json();
+      if (!signRes.ok || !signData.configured) {
         return {
-          status: 'online',
-          platform: data.platform || 'Nerds Room Edge Cluster',
-          latencyMs,
-          memory: data.memory
+          error: signData.error || 'Cloudinary API Secret not configured yet. You can still paste any image URL directly.',
         };
       }
-      return { status: 'offline', platform: 'Unreachable' };
-    } catch {
-      return { status: 'offline', platform: 'Unreachable' };
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('api_key', signData.apiKey);
+      formData.append('timestamp', String(signData.timestamp));
+      formData.append('signature', signData.signature);
+      formData.append('folder', signData.folder);
+
+      const uploadRes = await fetch(signData.uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadJson = await uploadRes.json();
+
+      if (!uploadRes.ok || !uploadJson.secure_url) {
+        return { error: uploadJson?.error?.message || 'Cloudinary upload failed' };
+      }
+
+      // Inject f_auto,q_auto optimization cleanly into the CDN URL
+      const optimizedUrl = String(uploadJson.secure_url).replace(
+        '/upload/',
+        '/upload/f_auto,q_auto/'
+      );
+      return { url: optimizedUrl };
+    } catch (err: any) {
+      return { error: err?.message || 'Upload error' };
     }
   }
 
-  public async checkNestHealth(): Promise<InfrastructureHealth> {
-    return this.checkClusterHealth();
+  // ===========================================================================
+  // 3. EVENTS & MULTI-ROUND OPERATIONS (100% Supabase + Instant Cache)
+  // ===========================================================================
+
+  private async fetchAllEventsRaw(): Promise<HackEvent[]> {
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        const mapped = data.map(mapRowToEvent);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(mapped));
+        }
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Supabase events query failed, serving fast local cache:', err);
+    }
+
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+    }
+    return DEFAULT_EVENTS;
   }
 
-  // Event Fetching with Strict Approval & Visibility Controls
   public async getEvents(filterType?: string, accessCode?: string): Promise<HackEvent[]> {
     return this.getPublicEvents(filterType, accessCode);
   }
 
   public async getPublicEvents(filterType?: string, accessCode?: string): Promise<HackEvent[]> {
-    const all: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-    let list = all.filter(e => {
-      // 1. Approved events are always live on site
+    const all = await this.fetchAllEventsRaw();
+    let list = all.filter((e) => {
       if (e.approvalStatus === 'approved') return true;
-      // 2. Private events are ONLY visible if the user accesses with the secret link code
-      if (e.approvalStatus === 'private' && accessCode && e.privateAccessCode === accessCode) return true;
-      // 3. Rejected events are never shown in public directory
+      if (e.approvalStatus === 'private' && accessCode && e.privateAccessCode === accessCode) {
+        return true;
+      }
       return false;
     });
 
     if (filterType && filterType !== 'all') {
-      list = list.filter(e => e.eventType === filterType);
+      list = list.filter((e) => e.eventType === filterType);
     }
     return list;
   }
 
-  // Master Admin: All events (including rejected and private)
   public async getMasterAdminEvents(): Promise<HackEvent[]> {
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        const res = await fetch(`${url}/api/events`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.events) && data.events.length > 0) {
-            localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(data.events));
-            return data.events;
-          }
-        }
-      } catch (e) {
-        console.warn('Backend fetch failed, using cached events:', e);
-      }
-    }
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+    return this.fetchAllEventsRaw();
   }
 
-  // Organizer Dashboard: Events hosted by this organizer
   public async getOrganizerEvents(organizerId: string): Promise<HackEvent[]> {
-    const all = await this.getMasterAdminEvents();
-    return all.filter(e => e.organizerId === organizerId || organizerId === 'usr_admin_01' || organizerId === 'usr_admin');
+    const all = await this.fetchAllEventsRaw();
+    return all.filter(
+      (e) =>
+        e.organizerId === organizerId ||
+        organizerId === 'usr_admin_01' ||
+        e.organizerId === 'usr_org_01'
+    );
   }
 
-  // Single Event Fetch
   public async getEventBySlug(slug: string, accessCode?: string): Promise<HackEvent | null> {
-    const all = await this.getMasterAdminEvents();
-    const event = all.find(e => e.slug === slug || e.id === slug);
+    const all = await this.fetchAllEventsRaw();
+    const event = all.find((e) => e.slug === slug || e.id === slug);
     if (!event) return null;
 
-    // Check visibility permissions
     if (event.approvalStatus === 'approved') return event;
-    if (event.approvalStatus === 'private' && (accessCode === event.privateAccessCode || this.currentUser?.role === 'master_admin' || this.currentUser?.id === event.organizerId)) {
+    if (
+      event.approvalStatus === 'private' &&
+      (accessCode === event.privateAccessCode ||
+        this.isMasterAdminAuthenticated() ||
+        this.currentUser?.id === event.organizerId)
+    ) {
       return event;
     }
-    if (this.currentUser?.role === 'master_admin' || this.currentUser?.id === event.organizerId) {
+    if (this.isMasterAdminAuthenticated() || this.currentUser?.id === event.organizerId) {
       return event;
     }
     return null;
   }
 
-  // Master Admin Status Controls
-  public async updateEventApprovalStatus(eventId: string, newStatus: EventApprovalStatus): Promise<HackEvent | null> {
+  public async updateEventApprovalStatus(
+    eventId: string,
+    newStatus: EventApprovalStatus
+  ): Promise<HackEvent | null> {
     const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-    const idx = events.findIndex(e => e.id === eventId);
+    const idx = events.findIndex((e) => e.id === eventId);
     if (idx !== -1) {
       events[idx].approvalStatus = newStatus;
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
     }
 
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        const res = await fetch(`${url}/api/events/${eventId}/approval`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return data.event || events[idx];
-        }
-      } catch (e) {
-        console.warn('Backend approval update failed:', e);
-      }
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .update({ approval_status: newStatus })
+        .eq('id', eventId)
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) return mapRowToEvent(data);
+    } catch (err) {
+      console.warn('Supabase approval update fallback:', err);
     }
 
     return idx !== -1 ? events[idx] : null;
@@ -557,39 +757,33 @@ class HackApiService {
 
   public async toggleEventFeatured(eventId: string, isFeatured: boolean): Promise<HackEvent | null> {
     const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-    const idx = events.findIndex(e => e.id === eventId);
+    const idx = events.findIndex((e) => e.id === eventId);
     if (idx !== -1) {
       events[idx].isFeatured = isFeatured;
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
     }
 
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        const res = await fetch(`${url}/api/events/${eventId}/featured`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isFeatured })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return data.event || events[idx];
-        }
-      } catch (e) {
-        console.warn('Backend feature toggle failed:', e);
-      }
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .update({ is_featured: isFeatured })
+        .eq('id', eventId)
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) return mapRowToEvent(data);
+    } catch (err) {
+      console.warn('Supabase featured update fallback:', err);
     }
 
     return idx !== -1 ? events[idx] : null;
   }
 
-  // Create Event (Organizer / Admin)
   public async createEvent(eventData: Partial<HackEvent>): Promise<HackEvent> {
-    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
     const title = eventData.title || 'Untitled Hackathon';
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
     const user = this.currentUser || DEMO_USERS.organizer;
-
     const privateAccessCode = `secret_${Math.random().toString(36).substring(2, 9)}`;
 
     const newEvent: HackEvent = {
@@ -600,14 +794,19 @@ class HackApiService {
       description: eventData.description || 'Welcome to our event!',
       eventType: eventData.eventType || 'hackathon',
       status: 'active',
-      approvalStatus: user.role === 'master_admin' ? 'approved' : (eventData.approvalStatus || 'approved'),
+      approvalStatus:
+        this.isMasterAdminAuthenticated()
+          ? eventData.approvalStatus || 'approved'
+          : eventData.approvalStatus || 'approved',
       isFeatured: Boolean(eventData.isFeatured),
       privateAccessCode,
       organizerId: user.id,
       organizerName: eventData.organizerName || user.name,
-      organizerOrg: eventData.organizerOrg || 'Nerds Room Lead Organizer',
-      organizerContact: eventData.organizerContact || '',
-      coverUrl: eventData.coverUrl || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+      organizerOrg: eventData.organizerOrg || user.college || 'Nerds Room Lead Organizer',
+      organizerContact: eventData.organizerContact || user.email,
+      coverUrl:
+        eventData.coverUrl ||
+        'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
       startTime: eventData.startTime || new Date().toISOString(),
       endTime: eventData.endTime || new Date(Date.now() + 86400000 * 2).toISOString(),
       location: eventData.location || 'Online / Discord',
@@ -617,112 +816,134 @@ class HackApiService {
       tags: eventData.tags || ['Hackathon', 'NerdsRoom'],
       prizes: eventData.prizes || [],
       schedule: eventData.schedule || [],
-      rounds: eventData.rounds || [
-        {
-          id: 'rnd_1',
-          roundNumber: 1,
-          title: 'Round 1: Registration & Pitch Deck',
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
-          description: 'Submit your team members and abstract.',
-          status: 'active',
-          submissionType: 'deck'
-        }
-      ],
-      importantLinks: eventData.importantLinks || [
-        { id: 'lnk_1', title: 'Community Discord', url: 'https://discord.gg/nerdsroom', type: 'discord' }
-      ],
-      rsvpCount: 1
+      rounds: eventData.rounds || [],
+      importantLinks: eventData.importantLinks || [],
+      rsvpCount: 0,
     };
 
+    // Update instant cache
+    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
     events.unshift(newEvent);
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
 
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        await fetch(`${url}/api/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newEvent)
-        });
-      } catch (e) {
-        console.warn('Backend event creation sync failed:', e);
+    // Persist in Supabase
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .insert(mapEventToRow(newEvent))
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) {
+        return mapRowToEvent(data);
       }
+    } catch (err) {
+      console.warn('Supabase createEvent fallback (run schema SQL if missing):', err);
     }
 
     return newEvent;
   }
 
-  // Attendee Roster (For Organizer & Master Admin)
-  public async getEventAttendees(eventId: string): Promise<HackerRSVP[]> {
-    const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    return rsvps.filter(r => r.eventId === eventId);
+  // ===========================================================================
+  // 4. ATTENDEES, RSVPS & QR CHECK-INS
+  // ===========================================================================
+
+  private async fetchAllRsvpsRaw(): Promise<HackerRSVP[]> {
+    try {
+      const { data, error } = await supabase
+        .from('league_rsvps')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        const mapped = data.map(mapRowToRsvp);
+        localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch {
+      // Fallback
+    }
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
   }
 
-  // Master Admin: All Attendees across the entire platform
-  public async getAllAttendees(): Promise<{ rsvp: HackerRSVP; event?: HackEvent }[]> {
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        const res = await fetch(`${url}/api/attendees`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.attendees) && data.attendees.length > 0) {
-            return data.attendees;
-          }
-        }
-      } catch (e) {
-        console.warn('Backend attendees fetch failed:', e);
-      }
-    }
+  public async getEventAttendees(eventId: string): Promise<HackerRSVP[]> {
+    const rsvps = await this.fetchAllRsvpsRaw();
+    return rsvps.filter((r) => r.eventId === eventId);
+  }
 
-    const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-    return rsvps.map(rsvp => ({
+  public async getAllAttendees(): Promise<{ rsvp: HackerRSVP; event?: HackEvent }[]> {
+    const [rsvps, events] = await Promise.all([this.fetchAllRsvpsRaw(), this.fetchAllEventsRaw()]);
+    return rsvps.map((rsvp) => ({
       rsvp,
-      event: events.find(e => e.id === rsvp.eventId)
+      event: events.find((e) => e.id === rsvp.eventId),
     }));
   }
 
-  // Master Admin: Direct Check-In Override
   public async toggleAttendeeCheckIn(rsvpId: string): Promise<HackerRSVP | null> {
     const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    const index = rsvps.findIndex(r => r.id === rsvpId);
+    const index = rsvps.findIndex((r) => r.id === rsvpId);
+    let nextState = true;
     let updatedRsvp: HackerRSVP | null = null;
+
     if (index !== -1) {
-      rsvps[index].checkedIn = !rsvps[index].checkedIn;
-      rsvps[index].checkedInAt = rsvps[index].checkedIn ? new Date().toISOString() : null;
+      nextState = !rsvps[index].checkedIn;
+      rsvps[index].checkedIn = nextState;
+      rsvps[index].checkedInAt = nextState ? new Date().toISOString() : null;
       localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
       updatedRsvp = rsvps[index];
     }
 
-    const url = this.getApiUrl();
-    if (url) {
-      try {
-        const res = await fetch(`${url}/api/attendees/${rsvpId}/toggle-checkin`, { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          return data.rsvp || updatedRsvp;
-        }
-      } catch (e) {
-        console.warn('Backend toggle checkin failed:', e);
-      }
+    try {
+      const { data, error } = await supabase
+        .from('league_rsvps')
+        .update({
+          checked_in: nextState,
+          checked_in_at: nextState ? new Date().toISOString() : null,
+        })
+        .eq('id', rsvpId)
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) return mapRowToRsvp(data);
+    } catch {
+      // Fallback
     }
 
     return updatedRsvp;
   }
 
-  // Master Admin Security Gate
-  public verifyMasterKey(key: string): boolean {
-    const validKey = localStorage.getItem('nerds_master_key') || 'nerds-core-2026';
-    const isCorrect = key.trim() === validKey.trim() || key.trim() === 'nerdsroom2026';
-    if (isCorrect) {
-      this.setMasterAdminAuthenticated(true);
-      this.currentUser = DEMO_USERS.master_admin;
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(DEMO_USERS.master_admin));
+  // ===========================================================================
+  // 5. MASTER ADMIN SECURITY GATE (Vercel Server-Verified)
+  // ===========================================================================
+
+  public async verifyMasterCredentials(
+    adminId: string,
+    passcode: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/admin-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId, passcode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.authenticated) {
+        return { success: false, error: data.error || 'Invalid Master Admin credentials.' };
+      }
+
+      sessionStorage.setItem('nerds_master_authenticated', 'true');
+      sessionStorage.setItem('nerds_master_token', data.token || '');
+      if (data.admin) {
+        this.setCurrentUser(data.admin);
+      }
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Unable to verify Master Admin credentials with server.',
+      };
     }
-    return isCorrect;
   }
 
   public isMasterAdminAuthenticated(): boolean {
@@ -736,48 +957,49 @@ class HackApiService {
       sessionStorage.setItem('nerds_master_authenticated', 'true');
     } else {
       sessionStorage.removeItem('nerds_master_authenticated');
+      sessionStorage.removeItem('nerds_master_token');
     }
   }
 
-  public updateMasterKey(newKey: string): boolean {
-    if (!newKey || newKey.trim().length < 6) return false;
-    localStorage.setItem('nerds_master_key', newKey.trim());
-    return true;
-  }
+  // ===========================================================================
+  // 6. STUDENT PASSES, REGISTRATIONS & QR VERIFICATION
+  // ===========================================================================
 
-  // Student Registrations & Passes
   public async getStudentRegistrations(email?: string): Promise<{ rsvp: HackerRSVP; event: HackEvent }[]> {
-    const userEmail = email || this.currentUser?.email || '';
-    const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+    const userEmail = (email || this.currentUser?.email || '').toLowerCase();
+    const [rsvps, events] = await Promise.all([this.fetchAllRsvpsRaw(), this.fetchAllEventsRaw()]);
 
-    const userRsvps = rsvps.filter(r => r.email.toLowerCase() === userEmail.toLowerCase() || r.email.includes('rohan'));
-    return userRsvps.map(rsvp => {
-      const event = events.find(e => e.id === rsvp.eventId) || events[0];
+    const userRsvps = userEmail
+      ? rsvps.filter((r) => r.email.toLowerCase() === userEmail)
+      : rsvps;
+
+    return userRsvps.map((rsvp) => {
+      const event = events.find((e) => e.id === rsvp.eventId) || events[0];
       return { rsvp, event };
     });
   }
 
-  // RSVP Form Action
-  public async rsvpEvent(slug: string, details: {
-    hackerName: string;
-    email: string;
-    githubHandle?: string;
-    discordTag?: string;
-    hackerRole?: string;
-    teamName?: string;
-    dietaryNeeds?: string;
-  }): Promise<{ rsvp: HackerRSVP; eventTitle: string }> {
-    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
-    const event = events.find(e => e.slug === slug || e.id === slug) || events[0];
-    const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-
+  public async rsvpEvent(
+    slug: string,
+    details: {
+      hackerName: string;
+      email: string;
+      githubHandle?: string;
+      discordTag?: string;
+      hackerRole?: string;
+      teamName?: string;
+      dietaryNeeds?: string;
+    }
+  ): Promise<{ rsvp: HackerRSVP; eventTitle: string }> {
+    const events = await this.fetchAllEventsRaw();
+    const event = events.find((e) => e.slug === slug || e.id === slug) || events[0];
     const passCode = `NR-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
     const newRsvp: HackerRSVP = {
       id: 'rsvp_' + Date.now(),
       eventId: event.id,
       hackerName: details.hackerName,
-      email: details.email,
+      email: details.email.trim().toLowerCase(),
       githubHandle: details.githubHandle || '',
       discordTag: details.discordTag || '',
       hackerRole: details.hackerRole || 'Fullstack Builder',
@@ -786,101 +1008,290 @@ class HackApiService {
       passCode,
       checkedIn: false,
       checkedInAt: null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
-    rsvps.unshift(newRsvp);
-    localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
+    // Update instant cache
+    const cachedRsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
+    cachedRsvps.unshift(newRsvp);
+    localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(cachedRsvps));
 
     event.rsvpCount = (event.rsvpCount || 0) + 1;
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
 
+    // Persist in Supabase
+    try {
+      const { data, error } = await supabase
+        .from('league_rsvps')
+        .insert({
+          id: newRsvp.id,
+          event_id: newRsvp.eventId,
+          hacker_name: newRsvp.hackerName,
+          email: newRsvp.email,
+          github_handle: newRsvp.githubHandle,
+          discord_tag: newRsvp.discordTag,
+          hacker_role: newRsvp.hackerRole,
+          team_name: newRsvp.teamName,
+          dietary_needs: newRsvp.dietaryNeeds,
+          pass_code: newRsvp.passCode,
+          checked_in: false,
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) {
+        return { rsvp: mapRowToRsvp(data), eventTitle: event.title };
+      }
+    } catch {
+      // Fallback
+    }
+
     return { rsvp: newRsvp, eventTitle: event.title };
   }
 
-  // Check-In Ticket Code
-  public async checkInAttendee(code: string): Promise<{ success: boolean; rsvp?: HackerRSVP; message: string; alreadyCheckedIn?: boolean }> {
+  public async checkInAttendee(code: string): Promise<{
+    success: boolean;
+    rsvp?: HackerRSVP;
+    message: string;
+    alreadyCheckedIn?: boolean;
+  }> {
+    const cleanCode = code.trim().toUpperCase();
+
+    try {
+      const { data: existing } = await supabase
+        .from('league_rsvps')
+        .select('*')
+        .ilike('pass_code', cleanCode)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.checked_in) {
+          return {
+            success: true,
+            rsvp: mapRowToRsvp(existing),
+            message: 'Attendee is already checked in!',
+            alreadyCheckedIn: true,
+          };
+        }
+
+        const { data: updated } = await supabase
+          .from('league_rsvps')
+          .update({ checked_in: true, checked_in_at: new Date().toISOString() })
+          .eq('id', existing.id)
+          .select('*')
+          .maybeSingle();
+
+        return {
+          success: true,
+          rsvp: mapRowToRsvp(updated || existing),
+          message: 'Check-in verified & synced to Supabase!',
+        };
+      }
+    } catch {
+      // Fallback to local cache
+    }
+
     const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    const index = rsvps.findIndex(r => r.passCode.toUpperCase() === code.trim().toUpperCase());
+    const index = rsvps.findIndex((r) => r.passCode.toUpperCase() === cleanCode);
     if (index === -1) {
       return { success: false, message: 'Ticket pass code not found.' };
     }
 
     if (rsvps[index].checkedIn) {
-      return { success: true, rsvp: rsvps[index], message: 'Attendee is already checked in!', alreadyCheckedIn: true };
+      return {
+        success: true,
+        rsvp: rsvps[index],
+        message: 'Attendee is already checked in!',
+        alreadyCheckedIn: true,
+      };
     }
 
     rsvps[index].checkedIn = true;
     rsvps[index].checkedInAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
-
-    return { success: true, rsvp: rsvps[index], message: 'Check-in verified successfully!' };
+    return { success: true, rsvp: rsvps[index], message: 'Check-in verified!' };
   }
 
-  // Teams & Projects
-  public async getTeams(eventSlug: string): Promise<HackerTeam[]> {
+  // ===========================================================================
+  // 7. TEAMS & PROJECT SHIPYARD
+  // ===========================================================================
+
+  public async getTeams(_eventSlug?: string): Promise<HackerTeam[]> {
+    try {
+      const { data, error } = await supabase
+        .from('league_teams')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        const mapped = data.map(mapRowToTeam);
+        localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch {
+      // Fallback
+    }
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
   }
 
-  public async createTeam(eventSlug: string, team: { teamName: string; pitch: string; lookingForRoles: string[]; contactLink: string }): Promise<HackerTeam> {
-    const teams: HackerTeam[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
+  public async createTeam(
+    eventSlug: string,
+    team: { teamName: string; pitch: string; lookingForRoles: string[]; contactLink: string }
+  ): Promise<HackerTeam> {
+    const events = await this.fetchAllEventsRaw();
+    const targetEvent = events.find((e) => e.slug === eventSlug) || events[0];
+
     const newTeam: HackerTeam = {
       id: 'team_' + Date.now(),
-      eventId: 'evt_hack_01',
+      eventId: targetEvent?.id || 'evt_hack_01',
       teamName: team.teamName,
       pitch: team.pitch,
       lookingForRoles: team.lookingForRoles,
       contactLink: team.contactLink,
       membersCount: 1,
       maxMembers: 4,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
+
+    const teams: HackerTeam[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
     teams.unshift(newTeam);
     localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+
+    try {
+      const { data, error } = await supabase
+        .from('league_teams')
+        .insert({
+          id: newTeam.id,
+          event_id: newTeam.eventId,
+          team_name: newTeam.teamName,
+          pitch: newTeam.pitch,
+          looking_for_roles: newTeam.lookingForRoles,
+          contact_link: newTeam.contactLink,
+          members_count: 1,
+          max_members: 4,
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) return mapRowToTeam(data);
+    } catch {
+      // Fallback
+    }
+
     return newTeam;
   }
 
-  public async getProjects(eventSlug: string): Promise<HackProject[]> {
+  public async getProjects(_eventSlug?: string): Promise<HackProject[]> {
+    try {
+      const { data, error } = await supabase
+        .from('league_projects')
+        .select('*')
+        .order('upvotes', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        const mapped = data.map(mapRowToProject);
+        localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch {
+      // Fallback
+    }
+
     const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
     return projects.sort((a, b) => b.upvotes - a.upvotes);
   }
 
-  public async submitProject(eventSlug: string, project: { title: string; tagline: string; repoUrl: string; demoUrl: string; tags: string[]; teamMembers: string[] }): Promise<HackProject> {
-    const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
+  public async submitProject(
+    eventSlug: string,
+    project: {
+      title: string;
+      tagline: string;
+      repoUrl: string;
+      demoUrl: string;
+      tags: string[];
+      teamMembers: string[];
+    }
+  ): Promise<HackProject> {
+    const events = await this.fetchAllEventsRaw();
+    const targetEvent = events.find((e) => e.slug === eventSlug) || events[0];
+
     const newProj: HackProject = {
       id: 'proj_' + Date.now(),
-      eventId: 'evt_hack_01',
+      eventId: targetEvent?.id || 'evt_hack_01',
       title: project.title,
       tagline: project.tagline,
       repoUrl: project.repoUrl,
       demoUrl: project.demoUrl,
-      coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+      coverImage:
+        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
       teamMembers: project.teamMembers,
       tags: project.tags,
       upvotes: 1,
       submittedByEmail: this.currentUser?.email,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
+
+    const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
     projects.unshift(newProj);
     localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+
+    try {
+      const { data, error } = await supabase
+        .from('league_projects')
+        .insert({
+          id: newProj.id,
+          event_id: newProj.eventId,
+          title: newProj.title,
+          tagline: newProj.tagline,
+          repo_url: newProj.repoUrl,
+          demo_url: newProj.demoUrl,
+          cover_image: newProj.coverImage,
+          team_members: newProj.teamMembers,
+          tags: newProj.tags,
+          upvotes: 1,
+          submitted_by_email: newProj.submittedByEmail || null,
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) return mapRowToProject(data);
+    } catch {
+      // Fallback
+    }
+
     return newProj;
   }
 
   public async upvoteProject(projectId: string): Promise<number> {
     const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
-    const proj = projects.find(p => p.id === projectId);
+    const proj = projects.find((p) => p.id === projectId);
+    const nextUpvotes = (proj?.upvotes || 0) + 1;
+
     if (proj) {
-      proj.upvotes = (proj.upvotes || 0) + 1;
+      proj.upvotes = nextUpvotes;
       localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
-      return proj.upvotes;
     }
-    return 0;
+
+    try {
+      const { data } = await supabase
+        .from('league_projects')
+        .update({ upvotes: nextUpvotes })
+        .eq('id', projectId)
+        .select('upvotes')
+        .maybeSingle();
+      if (data?.upvotes) return data.upvotes;
+    } catch {
+      // Fallback
+    }
+
+    return nextUpvotes;
   }
 
   public getMyPasses(): HackerRSVP[] {
     const rsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
-    const email = this.currentUser?.email || '';
-    return rsvps.filter(r => r.email.toLowerCase() === email.toLowerCase() || r.email.includes('rohan'));
+    const email = (this.currentUser?.email || '').toLowerCase();
+    if (!email) return [];
+    return rsvps.filter((r) => r.email.toLowerCase() === email);
   }
 }
 

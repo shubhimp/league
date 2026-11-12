@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Calendar, Link as LinkIcon, Trophy, Layers, ArrowRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Plus, Trash2, Calendar, Link as LinkIcon, Trophy, Layers, ArrowRight, Upload, Image as ImageIcon } from 'lucide-react';
 import { EventRound, ImportantLink, HackEvent, EventType } from '../types';
 import { hackApi } from '../services/hackApi';
 
@@ -10,6 +10,7 @@ interface CreateEventModalProps {
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onEventCreated }) => {
   const currentUser = hackApi.getCurrentUser();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState('');
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
@@ -20,7 +21,23 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
   const [organizerName, setOrganizerName] = useState(currentUser?.name || 'Aditya Sharma');
   const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Lead Organizer');
   const [coverUrl, setCoverUrl] = useState('https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80');
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [visibility, setVisibility] = useState<'approved' | 'private'>('approved');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    setUploadError('');
+    const res = await hackApi.uploadCoverToCloudinary(file);
+    setUploadingCover(false);
+    if (res.url) {
+      setCoverUrl(res.url);
+    } else if (res.error) {
+      setUploadError(res.error);
+    }
+  };
 
   // Rounds State
   const [rounds, setRounds] = useState<EventRound[]>([
@@ -245,14 +262,38 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Cover Banner URL (Cloudflare / Unsplash)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-700 font-bold flex items-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5 text-nerdBlue" />
+                    <span>Cover Banner (Cloudinary CDN)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingCover}
+                    className="inline-flex items-center gap-1 text-[10px] font-black text-nerdBlue bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>{uploadingCover ? 'Uploading...' : 'Upload Image'}</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
                 <input
                   type="url"
                   value={coverUrl}
                   onChange={(e) => setCoverUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/... or Cloudflare URL"
+                  placeholder="https://res.cloudinary.com/hanndfsz/... or image URL"
                   className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none text-[11px]"
                 />
+                {uploadError && (
+                  <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">{uploadError}</p>
+                )}
               </div>
 
               <div>

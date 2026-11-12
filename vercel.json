@@ -2,6 +2,36 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/e/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/share?slug=:slug"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "event"
+        },
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/share"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

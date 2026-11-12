@@ -122,10 +122,6 @@ export interface InfrastructureHealth {
   status: 'online' | 'offline' | 'checking';
   platform: string;
   latencyMs?: number;
-  memory?: {
-    usedMb: number;
-    totalMb: number;
-  };
+  schemaReady?: boolean;
+  cloudinaryConfigured?: boolean;
 }
-
-export type NestClusterHealth = InfrastructureHealth;

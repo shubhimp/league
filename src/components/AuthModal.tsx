@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, User, Lock, Mail, Shield, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, User, Lock, Mail, Shield, Sparkles, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { hackApi } from '../services/hackApi';
-import { UserAccount, UserRole } from '../types';
+import { UserAccount } from '../types';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -13,17 +13,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('student');
+  const [role, setRole] = useState<'student' | 'organizer'>('student');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    const user = hackApi.login(email, role);
-    onSuccess(user);
-    onClose();
+    if (!email || !password) return;
+    setSubmitting(true);
+    setErrorMsg('');
+    setInfoMsg('');
+
+    if (mode === 'signup') {
+      if (password.length < 6) {
+        setErrorMsg('Password must be at least 6 characters.');
+        setSubmitting(false);
+        return;
+      }
+      const res = await hackApi.signUpWithEmail({
+        name: name.trim() || email.split('@')[0],
+        email,
+        password,
+        role,
+      });
+      setSubmitting(false);
+
+      if (res.error) {
+        setErrorMsg(res.error);
+        return;
+      }
+      if (res.requiresConfirmation) {
+        setInfoMsg('Account created! Check your inbox for a confirmation link, then sign in.');
+        return;
+      }
+      if (res.user) {
+        onSuccess(res.user);
+        onClose();
+      }
+    } else {
+      const res = await hackApi.signInWithEmail(email, password, role);
+      setSubmitting(false);
+
+      if (res.error) {
+        setErrorMsg(res.error);
+        return;
+      }
+      if (res.user) {
+        onSuccess(res.user);
+        onClose();
+      }
+    }
   };
 
-  const handleQuickDemo = (demoRole: UserRole) => {
+  const handleGoogleSignIn = async () => {
+    setErrorMsg('');
+    setSubmitting(true);
+    const res = await hackApi.signInWithGoogle(role);
+    if (res.error) {
+      setSubmitting(false);
+      setErrorMsg(res.error);
+    }
+  };
+
+  const handleQuickDemo = (demoRole: 'student' | 'organizer') => {
     const user = hackApi.switchRole(demoRole);
     onSuccess(user);
     onClose();
@@ -166,12 +219,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
             </div>
           </div>
 
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {infoMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{infoMsg}</span>
+            </div>
+          )}
+
           {/* Primary Action Button */}
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-sm tracking-wide shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-1.5"
+            disabled={submitting}
+            className="w-full py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-sm tracking-wide shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
-            <span>{mode === 'signin' ? 'Sign In' : 'Create My Account'}</span>
+            <span>{submitting ? 'Authenticating...' : mode === 'signin' ? 'Sign In' : 'Create My Account'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
@@ -185,10 +253,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
 
           <button
             type="button"
-            onClick={async () => {
-              await hackApi.signInWithGoogle();
-            }}
-            className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2.5 shadow-sm transition-all"
+            disabled={submitting}
+            onClick={handleGoogleSignIn}
+            className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2.5 shadow-sm transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path

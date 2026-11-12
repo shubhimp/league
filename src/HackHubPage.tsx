@@ -10,10 +10,10 @@ import { HackerPassModal } from './components/HackerPassModal';
 import { TeamBoardModal } from './components/TeamBoardModal';
 import { ProjectShipyardModal } from './components/ProjectShipyardModal';
 import { OrganizerCheckInModal } from './components/OrganizerCheckInModal';
-import { NestSettingsModal } from './components/NestSettingsModal';
+import { CloudStatusModal } from './components/CloudStatusModal';
 import { AuthModal } from './components/AuthModal';
 import { CreateEventModal } from './components/CreateEventModal';
-import { hackApi, DEMO_USERS } from './services/hackApi';
+import { hackApi, supabase, DEMO_USERS } from './services/hackApi';
 import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount } from './types';
 import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck } from 'lucide-react';
 
@@ -39,7 +39,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [createTeamEvent, setCreateTeamEvent] = useState<HackEvent | null>(null);
   const [submitProjectEvent, setSubmitProjectEvent] = useState<HackEvent | null>(null);
   const [organizerModalOpen, setOrganizerModalOpen] = useState(false);
-  const [nestSettingsOpen, setNestSettingsOpen] = useState(false);
+  const [cloudStatusOpen, setCloudStatusOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createEventModalOpen, setCreateEventModalOpen] = useState(false);
 
@@ -48,16 +48,44 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [allProjects, setAllProjects] = useState<HackProject[]>([]);
   const [myPasses, setMyPasses] = useState<HackerRSVP[]>([]);
 
-  // Check URL parameters for direct deep-links (e.g. ?event=slug&secret=access_code)
+  // Check URL parameters & /e/<slug> clean paths for deep-links
   const getUrlParams = () => {
     if (typeof window === 'undefined') return { eventSlug: null, secretCode: null, tab: null };
     const params = new URLSearchParams(window.location.search);
+    const pathMatch = window.location.pathname.match(/^\/e\/([^/]+)/);
     return {
-      eventSlug: params.get('event'),
-      secretCode: params.get('secret'),
+      eventSlug: params.get('event') || (pathMatch ? decodeURIComponent(pathMatch[1]) : null),
+      secretCode: params.get('secret') || params.get('access'),
       tab: params.get('tab') as NavTab | null,
     };
   };
+
+  // Sync Google OAuth / Email Auth session cleanly on mount & auth state changes
+  useEffect(() => {
+    hackApi.syncSupabaseSession().then((syncedUser) => {
+      if (syncedUser) {
+        setCurrentUser(syncedUser);
+        setMyPasses(hackApi.getMyPasses());
+      }
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (eventName) => {
+      if (eventName === 'SIGNED_IN' || eventName === 'TOKEN_REFRESHED') {
+        const synced = await hackApi.syncSupabaseSession();
+        if (synced) {
+          setCurrentUser(synced);
+          setMyPasses(hackApi.getMyPasses());
+        }
+      } else if (eventName === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setMyPasses([]);
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -166,7 +194,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           setActiveTab(tab);
           setSelectedEvent(null);
         }}
-        onOpenNestSettings={() => setNestSettingsOpen(true)}
+        onOpenCloudStatus={() => setCloudStatusOpen(true)}
         onOpenAuth={() => setAuthModalOpen(true)}
         onOpenCreateEvent={() => setCreateEventModalOpen(true)}
         onOpenCheckInDesk={() => setOrganizerModalOpen(true)}
@@ -570,10 +598,10 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         />
       )}
 
-      {nestSettingsOpen && (
-        <NestSettingsModal
-          onClose={() => setNestSettingsOpen(false)}
-          onSaved={() => {
+      {cloudStatusOpen && (
+        <CloudStatusModal
+          onClose={() => setCloudStatusOpen(false)}
+          onRefreshData={() => {
             fetchAllData();
           }}
         />

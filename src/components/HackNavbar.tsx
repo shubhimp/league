@@ -11,7 +11,7 @@ export type NavTab = 'events' | 'teams' | 'shipyard' | 'passes' | 'dashboard' | 
 interface HackNavbarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  onOpenNestSettings: () => void;
+  onOpenCloudStatus: () => void;
   onOpenAuth: () => void;
   onOpenCreateEvent: () => void;
   onOpenCheckInDesk: () => void;
@@ -25,7 +25,7 @@ interface HackNavbarProps {
 export const HackNavbar: React.FC<HackNavbarProps> = ({
   activeTab,
   setActiveTab,
-  onOpenNestSettings,
+  onOpenCloudStatus,
   onOpenAuth,
   onOpenCreateEvent,
   onOpenCheckInDesk,
@@ -289,9 +289,9 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
 
             {/* Cloud Status Indicator */}
             <button
-              onClick={onOpenNestSettings}
+              onClick={onOpenCloudStatus}
               className="w-2.5 h-2.5 rounded-full bg-nerdLime ring-2 ring-nerdBlue/30 hover:scale-125 transition-transform"
-              title="Nerds Room Event Cloud: Online & Synchronized"
+              title="Supabase + Cloudinary + Vercel Cloud Status"
             />
 
             {/* Mobile Hamburger */}

@@ -12,10 +12,10 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ event, onClo
   const [downloading, setDownloading] = useState(false);
   const previewCardRef = useRef<HTMLDivElement>(null);
 
-  // Generate shareable link
+  // Generate shareable Lu.ma-style clean event URL (routed through Vercel OG proxy for crawlers)
   const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}?event=${event.slug}${event.approvalStatus === 'private' ? `&access=${event.privateAccessCode}` : ''}`
-    : `https://league.nerdsroom.org?event=${event.slug}`;
+    ? `${window.location.origin}/e/${event.slug}${event.approvalStatus === 'private' ? `?secret=${event.privateAccessCode}` : ''}`
+    : `https://league.nerdsroom.org/e/${event.slug}`;
 
   const eventDate = new Date(event.startTime).toLocaleDateString('en-US', {
     weekday: 'short',
