@@ -29,10 +29,14 @@ export default async function handler(req: any, res: any) {
     ? `https://league.nerdsroom.org/e/${encodeURIComponent(slug)}`
     : 'https://league.nerdsroom.org';
 
+  let redirectTarget = slug
+    ? `/?event=${encodeURIComponent(slug)}${secret ? `&secret=${encodeURIComponent(secret)}` : ''}`
+    : '/';
+
   if (slug) {
     try {
       const dbRes = await fetch(
-        `${supabaseUrl}/rest/v1/league_events?slug=eq.${encodeURIComponent(slug)}&select=slug,title,tagline,description,cover_url,organizer_name,location,start_time&limit=1`,
+        `${supabaseUrl}/rest/v1/league_events?slug=eq.${encodeURIComponent(slug)}&select=slug,title,tagline,description,cover_url,organizer_name,location,start_time,approval_status,private_access_code&limit=1`,
         {
           headers: {
             apikey: supabaseKey,
@@ -45,30 +49,37 @@ export default async function handler(req: any, res: any) {
         const rows = await dbRes.json();
         if (Array.isArray(rows) && rows.length > 0) {
           const evt = rows[0];
-          const dateLabel = evt.start_time
-            ? new Date(evt.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '';
-          title = `${evt.title} | Nerds Room League`;
-          description = [
-            evt.tagline || evt.description,
-            evt.organizer_name ? `Hosted by ${evt.organizer_name}` : '',
-            dateLabel,
-            evt.location,
-          ]
-            .filter(Boolean)
-            .join(' • ')
-            .slice(0, 220);
-          imageUrl = optimizeOgImageUrl(evt.cover_url);
+          const isApproved = evt.approval_status === 'approved';
+          const isUnlockedPrivate =
+            evt.approval_status === 'private' && Boolean(secret) && secret === evt.private_access_code;
+
+          if (isApproved || isUnlockedPrivate) {
+            const dateLabel = evt.start_time
+              ? new Date(evt.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '';
+            title = `${evt.title} | Nerds Room League`;
+            description = [
+              evt.tagline || evt.description,
+              evt.organizer_name ? `Hosted by ${evt.organizer_name}` : '',
+              dateLabel,
+              evt.location,
+            ]
+              .filter(Boolean)
+              .join(' • ')
+              .slice(0, 220);
+            imageUrl = optimizeOgImageUrl(evt.cover_url);
+          } else if (evt.approval_status === 'private') {
+            title = 'Private Event Invite | Nerds Room League';
+            description = 'This is an invite-only event on Nerds Room League. Open your personal invite link to view details and RSVP.';
+          } else {
+            redirectTarget = '/';
+          }
         }
       }
     } catch {
       // Fallback to default brand OG metadata
     }
   }
-
-  const redirectTarget = slug
-    ? `/?event=${encodeURIComponent(slug)}${secret ? `&secret=${encodeURIComponent(secret)}` : ''}`
-    : '/';
 
   const html = `<!DOCTYPE html>
 <html lang="en">

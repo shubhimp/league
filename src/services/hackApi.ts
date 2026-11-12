@@ -338,6 +338,25 @@ function mapRowToProject(row: any): HackProject {
   };
 }
 
+function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'google'): string {
+  const msg = rawMessage || '';
+  const lower = msg.toLowerCase();
+
+  if (context === 'google' && (lower.includes('provider is not enabled') || lower.includes('unsupported provider'))) {
+    return 'Google Sign-In is not enabled in Supabase Auth yet. Enable Google under Authentication → Providers in Supabase Dashboard, or use Email/Password / Quick Test Sign-In below.';
+  }
+  if (lower.includes('email rate limit exceeded') || lower.includes('over_email_send_rate_limit') || lower.includes('rate limit')) {
+    return 'Supabase free confirmation-email limit reached. Turn OFF "Confirm email" under Supabase Authentication → Providers → Email for instant unlimited signups, or use Quick Test Sign-In.';
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Your email address is not confirmed yet. Check your inbox for the verification link, or disable "Confirm email" in Supabase Authentication → Providers → Email.';
+  }
+  if (lower.includes('invalid login credentials')) {
+    return 'Incorrect email or password. Double-check your credentials or create a new account.';
+  }
+  return msg;
+}
+
 class HackApiService {
   private currentUser: UserAccount | null = null;
 
@@ -403,7 +422,7 @@ class HackApiService {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message, 'signup') };
     }
 
     const userId = data.user?.id || 'usr_' + Date.now();
@@ -441,7 +460,7 @@ class HackApiService {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message, 'signin') };
     }
 
     const user = await this.resolveUserFromAuthUser(data.user, fallbackRole);
@@ -460,10 +479,10 @@ class HackApiService {
           redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
         },
       });
-      if (error) return { error: error.message };
+      if (error) return { error: formatAuthError(error.message, 'google') };
       return {};
     } catch (err: any) {
-      return { error: err?.message || 'Google OAuth failed to initialize.' };
+      return { error: formatAuthError(err?.message || 'Google OAuth failed to initialize.', 'google') };
     }
   }
 
@@ -496,12 +515,13 @@ class HackApiService {
     const email = (authUser.email || '').toLowerCase();
     const meta = authUser.user_metadata || {};
 
-    // Check existing profile in league_profiles first
+    // Check existing profile in league_profiles first (by auth ID or email)
     try {
       const { data: existing } = await supabase
         .from('league_profiles')
         .select('*')
-        .eq('id', authUser.id)
+        .or(`id.eq.${authUser.id},email.eq.${email}`)
+        .limit(1)
         .maybeSingle();
 
       if (existing) {
@@ -540,18 +560,57 @@ class HackApiService {
 
   private async upsertProfile(user: UserAccount, provider: string) {
     try {
-      await supabase.from('league_profiles').upsert({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar_url: user.avatarUrl,
-        github_handle: user.githubHandle || null,
-        college: user.college || null,
-        auth_provider: provider,
-      });
+      await supabase.from('league_profiles').upsert(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          avatar_url: user.avatarUrl,
+          github_handle: user.githubHandle || null,
+          college: user.college || null,
+          auth_provider: provider,
+        },
+        { onConflict: 'email' }
+      );
     } catch {
       // Graceful fallback if table hasn't been created yet
+    }
+  }
+
+  public async getProfiles(): Promise<UserAccount[]> {
+    try {
+      const { data, error } = await supabase
+        .from('league_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        return data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          role: (row.role || 'student') as UserRole,
+          avatarUrl: row.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(row.name || 'Member')}`,
+          githubHandle: row.github_handle || undefined,
+          college: row.college || undefined,
+        }));
+      }
+    } catch {
+      // Ignore fallback
+    }
+    return [];
+  }
+
+  public async updateProfileRole(profileId: string, newRole: UserRole): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('league_profiles')
+        .update({ role: newRole })
+        .eq('id', profileId);
+      return !error;
+    } catch {
+      return false;
     }
   }
 
@@ -604,6 +663,13 @@ class HackApiService {
   }
 
   public async uploadCoverToCloudinary(file: File): Promise<{ url?: string; error?: string }> {
+    if (!file.type.startsWith('image/')) {
+      return { error: 'Please select a valid image file (PNG, JPG, WebP, or GIF).' };
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return { error: 'Image is larger than 10 MB. Please choose a smaller banner image.' };
+    }
+
     try {
       const signRes = await fetch('/api/cloudinary-sign', {
         method: 'POST',
@@ -614,16 +680,21 @@ class HackApiService {
       const signData = await signRes.json();
       if (!signRes.ok || !signData.configured) {
         return {
-          error: signData.error || 'Cloudinary API Secret not configured yet. You can still paste any image URL directly.',
+          error: signData.error || 'Cloudinary API Secret not configured yet. You can pick a preset cover or paste any image URL below.',
         };
       }
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('api_key', signData.apiKey);
-      formData.append('timestamp', String(signData.timestamp));
-      formData.append('signature', signData.signature);
       formData.append('folder', signData.folder);
+
+      if (signData.mode === 'unsigned' && signData.uploadPreset) {
+        formData.append('upload_preset', signData.uploadPreset);
+      } else {
+        formData.append('api_key', signData.apiKey);
+        formData.append('timestamp', String(signData.timestamp));
+        formData.append('signature', signData.signature);
+      }
 
       const uploadRes = await fetch(signData.uploadUrl, {
         method: 'POST',
@@ -632,7 +703,14 @@ class HackApiService {
       const uploadJson = await uploadRes.json();
 
       if (!uploadRes.ok || !uploadJson.secure_url) {
-        return { error: uploadJson?.error?.message || 'Cloudinary upload failed' };
+        const rawErr = String(uploadJson?.error?.message || '');
+        if (uploadRes.status === 403 || rawErr.toLowerCase().includes('missing permissions') || rawErr.includes('actions=["create"]')) {
+          return {
+            error:
+              'Cloudinary blocked direct upload (403): API Key role needs "Admin" or Upload permission in Cloudinary Console → Settings → API Keys. Pick a preset banner or paste an image URL below.',
+          };
+        }
+        return { error: rawErr || 'Cloudinary upload failed' };
       }
 
       // Inject f_auto,q_auto optimization cleanly into the CDN URL
@@ -700,12 +778,26 @@ class HackApiService {
 
   public async getOrganizerEvents(organizerId: string): Promise<HackEvent[]> {
     const all = await this.fetchAllEventsRaw();
+    const userEmail = (this.currentUser?.email || '').toLowerCase();
     return all.filter(
       (e) =>
         e.organizerId === organizerId ||
         organizerId === 'usr_admin_01' ||
-        e.organizerId === 'usr_org_01'
+        (Boolean(userEmail) && e.organizerContact?.toLowerCase() === userEmail)
     );
+  }
+
+  public async deleteEvent(eventId: string): Promise<boolean> {
+    const events: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+    const filtered = events.filter((e) => e.id !== eventId);
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(filtered));
+
+    try {
+      const { error } = await supabase.from('league_events').delete().eq('id', eventId);
+      return !error;
+    } catch {
+      return false;
+    }
   }
 
   public async getEventBySlug(slug: string, accessCode?: string): Promise<HackEvent | null> {
@@ -973,10 +1065,12 @@ class HackApiService {
       ? rsvps.filter((r) => r.email.toLowerCase() === userEmail)
       : rsvps;
 
-    return userRsvps.map((rsvp) => {
-      const event = events.find((e) => e.id === rsvp.eventId) || events[0];
-      return { rsvp, event };
-    });
+    return userRsvps
+      .map((rsvp) => {
+        const event = events.find((e) => e.id === rsvp.eventId);
+        return event ? { rsvp, event } : null;
+      })
+      .filter((item): item is { rsvp: HackerRSVP; event: HackEvent } => item !== null);
   }
 
   public async rsvpEvent(
@@ -1116,22 +1210,40 @@ class HackApiService {
   // 7. TEAMS & PROJECT SHIPYARD
   // ===========================================================================
 
-  public async getTeams(_eventSlug?: string): Promise<HackerTeam[]> {
+  private async resolveEventIdBySlug(eventSlug?: string): Promise<string | null> {
+    if (!eventSlug || eventSlug === 'all') return null;
+    const all = await this.fetchAllEventsRaw();
+    const found = all.find((e) => e.slug === eventSlug || e.id === eventSlug);
+    return found?.id || null;
+  }
+
+  public async getTeams(eventSlug?: string): Promise<HackerTeam[]> {
+    const targetEventId = await this.resolveEventIdBySlug(eventSlug);
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('league_teams')
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (targetEventId) {
+        query = query.eq('event_id', targetEventId);
+      }
+
+      const { data, error } = await query;
+
       if (!error && Array.isArray(data)) {
         const mapped = data.map(mapRowToTeam);
-        localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(mapped));
+        if (!targetEventId) {
+          localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(mapped));
+        }
         return mapped;
       }
     } catch {
       // Fallback
     }
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
+    const cached: HackerTeam[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.TEAMS) || '[]');
+    return targetEventId ? cached.filter((t) => t.eventId === targetEventId) : cached;
   }
 
   public async createTeam(
@@ -1139,7 +1251,7 @@ class HackApiService {
     team: { teamName: string; pitch: string; lookingForRoles: string[]; contactLink: string }
   ): Promise<HackerTeam> {
     const events = await this.fetchAllEventsRaw();
-    const targetEvent = events.find((e) => e.slug === eventSlug) || events[0];
+    const targetEvent = events.find((e) => e.slug === eventSlug || e.id === eventSlug) || events[0];
 
     const newTeam: HackerTeam = {
       id: 'team_' + Date.now(),
@@ -1181,16 +1293,26 @@ class HackApiService {
     return newTeam;
   }
 
-  public async getProjects(_eventSlug?: string): Promise<HackProject[]> {
+  public async getProjects(eventSlug?: string): Promise<HackProject[]> {
+    const targetEventId = await this.resolveEventIdBySlug(eventSlug);
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('league_projects')
         .select('*')
         .order('upvotes', { ascending: false });
 
+      if (targetEventId) {
+        query = query.eq('event_id', targetEventId);
+      }
+
+      const { data, error } = await query;
+
       if (!error && Array.isArray(data)) {
         const mapped = data.map(mapRowToProject);
-        localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(mapped));
+        if (!targetEventId) {
+          localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(mapped));
+        }
         return mapped;
       }
     } catch {
@@ -1198,7 +1320,8 @@ class HackApiService {
     }
 
     const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
-    return projects.sort((a, b) => b.upvotes - a.upvotes);
+    const filtered = targetEventId ? projects.filter((p) => p.eventId === targetEventId) : projects;
+    return filtered.sort((a, b) => b.upvotes - a.upvotes);
   }
 
   public async submitProject(
@@ -1213,7 +1336,7 @@ class HackApiService {
     }
   ): Promise<HackProject> {
     const events = await this.fetchAllEventsRaw();
-    const targetEvent = events.find((e) => e.slug === eventSlug) || events[0];
+    const targetEvent = events.find((e) => e.slug === eventSlug || e.id === eventSlug) || events[0];
 
     const newProj: HackProject = {
       id: 'proj_' + Date.now(),
@@ -1265,26 +1388,44 @@ class HackApiService {
   public async upvoteProject(projectId: string): Promise<number> {
     const projects: HackProject[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
     const proj = projects.find((p) => p.id === projectId);
-    const nextUpvotes = (proj?.upvotes || 0) + 1;
-
-    if (proj) {
-      proj.upvotes = nextUpvotes;
-      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
-    }
+    let nextUpvotes = (proj?.upvotes || 0) + 1;
 
     try {
+      const { data: current } = await supabase
+        .from('league_projects')
+        .select('upvotes')
+        .eq('id', projectId)
+        .maybeSingle();
+
+      if (typeof current?.upvotes === 'number') {
+        nextUpvotes = current.upvotes + 1;
+      }
+
       const { data } = await supabase
         .from('league_projects')
         .update({ upvotes: nextUpvotes })
         .eq('id', projectId)
         .select('upvotes')
         .maybeSingle();
-      if (data?.upvotes) return data.upvotes;
+
+      if (typeof data?.upvotes === 'number') {
+        nextUpvotes = data.upvotes;
+      }
     } catch {
       // Fallback
     }
 
+    if (proj) {
+      proj.upvotes = nextUpvotes;
+      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+    }
+
     return nextUpvotes;
+  }
+
+  public async syncMyPasses(): Promise<HackerRSVP[]> {
+    await this.fetchAllRsvpsRaw();
+    return this.getMyPasses();
   }
 
   public getMyPasses(): HackerRSVP[] {

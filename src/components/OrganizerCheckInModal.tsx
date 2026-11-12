@@ -5,9 +5,10 @@ import { HackerRSVP } from '../types';
 
 interface OrganizerCheckInModalProps {
   onClose: () => void;
+  onCheckInSuccess?: (rsvp: HackerRSVP) => void;
 }
 
-export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ onClose }) => {
+export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ onClose, onCheckInSuccess }) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -27,6 +28,9 @@ export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ on
     const checkinRes = await hackApi.checkInAttendee(code.trim());
     setResult(checkinRes);
     setLoading(false);
+    if (checkinRes.success && checkinRes.rsvp && onCheckInSuccess) {
+      onCheckInSuccess(checkinRes.rsvp);
+    }
   };
 
   const handleQuickFill = (sampleCode: string) => {
@@ -80,22 +84,16 @@ export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ on
 
           {/* Quick Demo Fill */}
           <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl">
-            <span className="text-[10px] text-slate-500 block mb-1.5 font-bold uppercase tracking-wider">Test Sample Passes:</span>
-            <div className="flex gap-2">
+            <span className="text-[10px] text-slate-500 block mb-1.5 font-bold uppercase tracking-wider">Quick Test Sample Pass:</span>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickFill('NR-A89F2')}
                 className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold"
               >
-                NR-A89F2 (Sample)
+                NR-A89F2 (Demo Ticket)
               </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('NR-C41B7')}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold"
-              >
-                NR-C41B7 (Sample)
-              </button>
+              <span className="text-[10px] text-slate-400">Or enter any newly RSVPed pass code</span>
             </div>
           </div>
 

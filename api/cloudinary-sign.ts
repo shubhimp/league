@@ -8,6 +8,28 @@ export default async function handler(req: any, res: any) {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'hanndfsz';
   const apiKey = process.env.CLOUDINARY_API_KEY || process.env.VITE_CLOUDINARY_API_KEY || '749185439125192';
   const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+  const unsignedPreset =
+    process.env.CLOUDINARY_UPLOAD_PRESET || process.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+
+  let body: Record<string, any> = {};
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+  } catch {
+    body = {};
+  }
+  const folder = String(body.folder || 'nerds-room-league').replace(/[^a-zA-Z0-9_/-]/g, '');
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+  if (unsignedPreset) {
+    return res.status(200).json({
+      configured: true,
+      mode: 'unsigned',
+      cloudName,
+      folder,
+      uploadPreset: unsignedPreset,
+      uploadUrl,
+    });
+  }
 
   if (!apiSecret || apiSecret.includes('PASTE_YOUR') || apiSecret.includes('<your_api_secret>')) {
     return res.status(400).json({
@@ -17,8 +39,6 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const folder = String(body.folder || 'nerds-room-league').replace(/[^a-zA-Z0-9_/-]/g, '');
     const timestamp = Math.floor(Date.now() / 1000);
 
     // Cloudinary requires alphabetical sorting of signed parameters
@@ -27,12 +47,13 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({
       configured: true,
+      mode: 'signed',
       cloudName,
       apiKey,
       timestamp,
       folder,
       signature,
-      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      uploadUrl,
     });
   } catch (err: any) {
     return res.status(500).json({

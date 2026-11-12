@@ -108,8 +108,26 @@ function localApiDevPlugin(env: Record<string, string>): Plugin {
           const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'hanndfsz';
           const apiKey = env.CLOUDINARY_API_KEY || env.VITE_CLOUDINARY_API_KEY || '749185439125192';
           const apiSecret = env.CLOUDINARY_API_SECRET || '';
+          const unsignedPreset = env.CLOUDINARY_UPLOAD_PRESET || env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+          const folder = String(body.folder || 'nerds-room-league').replace(/[^a-zA-Z0-9_/-]/g, '');
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
 
           res.setHeader('Content-Type', 'application/json');
+          if (unsignedPreset) {
+            res.statusCode = 200;
+            res.end(
+              JSON.stringify({
+                configured: true,
+                mode: 'unsigned',
+                cloudName,
+                folder,
+                uploadPreset: unsignedPreset,
+                uploadUrl,
+              })
+            );
+            return;
+          }
+
           if (!apiSecret || apiSecret.includes('PASTE_YOUR') || apiSecret.includes('<your_api_secret>')) {
             res.statusCode = 400;
             res.end(
@@ -121,7 +139,6 @@ function localApiDevPlugin(env: Record<string, string>): Plugin {
             return;
           }
 
-          const folder = String(body.folder || 'nerds-room-league').replace(/[^a-zA-Z0-9_/-]/g, '');
           const timestamp = Math.floor(Date.now() / 1000);
           const signature = createHash('sha1')
             .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
@@ -131,12 +148,13 @@ function localApiDevPlugin(env: Record<string, string>): Plugin {
           res.end(
             JSON.stringify({
               configured: true,
+              mode: 'signed',
               cloudName,
               apiKey,
               timestamp,
               folder,
               signature,
-              uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+              uploadUrl,
             })
           );
           return;

@@ -29,6 +29,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   // Main Dashboard Mode: Attending (Student/Attendee) vs Hosting (Organizer Mode)
   const [dashboardMode, setDashboardMode] = useState<'attending' | 'hosting'>(initialMode);
 
+  useEffect(() => {
+    setDashboardMode(initialMode);
+  }, [initialMode]);
+
   // Attending state
   const [registrations, setRegistrations] = useState<{ rsvp: HackerRSVP; event: HackEvent }[]>([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(true);
@@ -71,7 +75,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   };
 
   const copySecretLink = (event: HackEvent) => {
-    const url = `${window.location.origin}/?event=${event.slug}&secret=${event.privateAccessCode}`;
+    const url = `${window.location.origin}/e/${event.slug}?secret=${event.privateAccessCode}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(event.id);
     setTimeout(() => setCopiedLink(null), 2500);
@@ -225,7 +229,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <Layers className="w-4 h-4 text-nerdBlue" />
               </div>
               <div className="text-2xl font-black text-nerdBlue">
-                {registrations.reduce((acc, curr) => acc + (curr.event.rounds?.filter(r => r.status === 'active').length || 0), 0)}
+                {registrations.reduce((acc, curr) => acc + (curr.event?.rounds?.filter(r => r.status === 'active').length || 0), 0)}
               </div>
               <div className="text-[11px] font-bold text-slate-500">In Progress Deadlines</div>
             </div>
@@ -236,7 +240,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <Users className="w-4 h-4 text-nerdBlue" />
               </div>
               <div className="text-2xl font-black text-slate-900">
-                {new Set(registrations.map(r => r.rsvp.teamName)).size}
+                {new Set(registrations.map(r => r.rsvp.teamName).filter(t => t && t !== 'Solo Hacker')).size}
               </div>
               <div className="text-[11px] font-bold text-slate-500">Formed Squads</div>
             </div>
@@ -298,7 +302,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           <p className="text-xs text-slate-500">{event.location} • Team: <strong>{rsvp.teamName}</strong></p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => onSelectEvent(event)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs transition-colors"
+                          >
+                            <span>View Event</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-nerdLime" />
+                          </button>
                           <button
                             onClick={() => onViewPass(rsvp, event.title)}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
@@ -524,9 +535,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <div className="bg-white border-2 border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
-                  <div className="text-xs font-bold text-slate-400 uppercase">Attendee Roster for:</div>
-                  <h3 className="text-xl font-black text-nerdDark">{selectedHostedEvent.title}</h3>
-                  <p className="text-xs text-slate-500">{attendees.length} Attendees Registered</p>
+                  <div className="text-xs font-bold text-slate-400 uppercase mb-1">Attendee Roster for:</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-black text-nerdDark">{selectedHostedEvent.title}</h3>
+                    {hostedEvents.length > 1 && (
+                      <select
+                        value={selectedHostedEvent.id}
+                        onChange={(e) => handleSelectEvent(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:border-nerdBlue"
+                      >
+                        {hostedEvents.map((evt) => (
+                          <option key={evt.id} value={evt.id}>{evt.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{attendees.length} Attendees Registered</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -547,46 +571,51 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Attendee</th>
-                      <th className="py-3 px-4">Contact</th>
-                      <th className="py-3 px-4">Specialty Track</th>
-                      <th className="py-3 px-4">Team</th>
-                      <th className="py-3 px-4">Pass Code</th>
-                      <th className="py-3 px-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {attendees.map((a) => (
-                      <tr key={a.id} className="hover:bg-slate-50/60">
-                        <td className="py-3 px-4 font-bold text-slate-900">{a.hackerName}</td>
-                        <td className="py-3 px-4 text-slate-600">
-                          <div>{a.email}</div>
-                          <div className="text-[11px] text-slate-400">@{a.githubHandle || a.discordTag}</div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-nerdBlue font-bold text-[11px]">
-                            {a.hackerRole}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{a.teamName}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-nerdBlue">{a.passCode}</td>
-                        <td className="py-3 px-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            a.checkedIn ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {a.checkedIn ? '● Checked In' : 'Registered'}
-                          </span>
-                        </td>
+              {attendees.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
+                  No attendees have RSVPed for this event yet. Share your event link to start receiving registrations!
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Attendee</th>
+                        <th className="py-3 px-4">Contact</th>
+                        <th className="py-3 px-4">Specialty Track</th>
+                        <th className="py-3 px-4">Team</th>
+                        <th className="py-3 px-4">Pass Code</th>
+                        <th className="py-3 px-4">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {attendees.map((a) => (
+                        <tr key={a.id} className="hover:bg-slate-50/60">
+                          <td className="py-3 px-4 font-bold text-slate-900">{a.hackerName}</td>
+                          <td className="py-3 px-4 text-slate-600">
+                            <div>{a.email}</div>
+                            <div className="text-[11px] text-slate-400">@{a.githubHandle || a.discordTag || 'member'}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-nerdBlue font-bold text-[11px]">
+                              {a.hackerRole}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-700 font-medium">{a.teamName}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-nerdBlue">{a.passCode}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              a.checkedIn ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {a.checkedIn ? '● Checked In' : 'Registered'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

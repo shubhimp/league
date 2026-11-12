@@ -109,7 +109,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
         <div className="flex border-b border-slate-100 bg-slate-50">
           <button
             type="button"
-            onClick={() => setMode('signin')}
+            onClick={() => {
+              setMode('signin');
+              setErrorMsg('');
+              setInfoMsg('');
+            }}
             className={`flex-1 py-3 text-xs font-bold transition-all ${
               mode === 'signin'
                 ? 'bg-white text-nerdBlue border-b-2 border-nerdBlue shadow-sm'
@@ -120,7 +124,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
           </button>
           <button
             type="button"
-            onClick={() => setMode('signup')}
+            onClick={() => {
+              setMode('signup');
+              setErrorMsg('');
+              setInfoMsg('');
+            }}
             className={`flex-1 py-3 text-xs font-bold transition-all ${
               mode === 'signup'
                 ? 'bg-white text-nerdBlue border-b-2 border-nerdBlue shadow-sm'

@@ -7,7 +7,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview).*"
+          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Facebot|meta-externalagent|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview|Applebot).*"
         }
       ],
       "destination": "/api/share?slug=:slug"
@@ -22,7 +22,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview).*"
+          "value": ".*(bot|crawl|slurp|spider|WhatsApp|Facebot|meta-externalagent|Twitterbot|facebookexternalhit|LinkedInBot|Discordbot|TelegramBot|Slackbot|Embedly|SkypeUriPreview|Applebot).*"
         }
       ],
       "destination": "/api/share"

@@ -8,8 +8,31 @@ interface TerminalHeroProps {
   selectedType: string;
   setSelectedType: (t: string) => void;
   totalHackers: number;
+  eventsCount?: number;
   featuredEvent?: HackEvent | null;
+  nextEvent?: HackEvent | null;
   onSelectFeatured?: (event: HackEvent) => void;
+}
+
+function computeCountdown(startIso?: string, endIso?: string) {
+  const startMs = startIso ? new Date(startIso).getTime() : new Date('2026-11-15T09:00:00Z').getTime();
+  const endMs = endIso ? new Date(endIso).getTime() : startMs + 36 * 60 * 60 * 1000;
+  const now = Date.now();
+  const diff = startMs - now;
+
+  if (diff > 0) {
+    return {
+      status: 'upcoming' as const,
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((diff % (1000 * 60)) / 1000),
+    };
+  }
+  if (now <= endMs) {
+    return { status: 'live' as const, days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+  return { status: 'open' as const, days: 0, hours: 0, minutes: 0, seconds: 0 };
 }
 
 export const TerminalHero: React.FC<TerminalHeroProps> = ({
@@ -18,29 +41,24 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
   selectedType,
   setSelectedType,
   totalHackers,
+  eventsCount = 2,
   featuredEvent,
+  nextEvent,
   onSelectFeatured,
 }) => {
-  const targetDate = new Date('2026-11-15T09:00:00Z').getTime();
-  const [timeLeft, setTimeLeft] = useState({ days: 19, hours: 14, minutes: 22, seconds: 40 });
+  const countdownEvent = nextEvent || featuredEvent;
+  const [countdown, setCountdown] = useState(() =>
+    computeCountdown(countdownEvent?.startTime, countdownEvent?.endTime)
+  );
 
   useEffect(() => {
+    setCountdown(computeCountdown(countdownEvent?.startTime, countdownEvent?.endTime));
     const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        });
-      }
+      setCountdown(computeCountdown(countdownEvent?.startTime, countdownEvent?.endTime));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [targetDate]);
+  }, [countdownEvent?.startTime, countdownEvent?.endTime]);
 
   return (
     <div className="relative overflow-hidden bg-white pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 border-b border-gray-100">
@@ -103,10 +121,20 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
 
           <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 border-nerdBlue bg-white text-nerdBlue font-bold text-xs shadow-sm">
             <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
-            <span className="font-black text-slate-800">Next Flagship Starts in:</span>
-            <span className="font-mono font-black text-nerdBlue bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-              {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-            </span>
+            {countdown.status === 'upcoming' ? (
+              <>
+                <span className="font-black text-slate-800">
+                  {countdownEvent ? `${countdownEvent.title.split(':')[0]} Starts in:` : 'Next Flagship Starts in:'}
+                </span>
+                <span className="font-mono font-black text-nerdBlue bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                  {countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
+                </span>
+              </>
+            ) : countdown.status === 'live' ? (
+              <span className="font-black text-emerald-700">HACKATHON ARENA LIVE NOW ⚡</span>
+            ) : (
+              <span className="font-black text-nerdBlue">REGISTRATION OPEN FOR BUILDERS ⚡</span>
+            )}
           </div>
         </div>
 
@@ -118,12 +146,12 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
           </div>
 
           <div className="bg-[#E8F5E9] border border-emerald-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-emerald-700 mb-0.5">$25,000+</div>
-            <div className="text-xs font-bold text-slate-700">Cash Bounties</div>
+            <div className="text-3xl font-black text-emerald-700 mb-0.5">{eventsCount} Live</div>
+            <div className="text-xs font-bold text-slate-700">Active Challenges</div>
           </div>
 
           <div className="bg-[#FFF7E0] border border-amber-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-amber-700 mb-0.5">3 Rounds</div>
+            <div className="text-3xl font-black text-amber-700 mb-0.5">Multi-Round</div>
             <div className="text-xs font-bold text-slate-700">Idea to Grand Finale</div>
           </div>
 

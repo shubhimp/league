@@ -15,7 +15,7 @@ import { AuthModal } from './components/AuthModal';
 import { CreateEventModal } from './components/CreateEventModal';
 import { hackApi, supabase, DEMO_USERS } from './services/hackApi';
 import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount } from './types';
-import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck, AlertCircle, X, LogIn } from 'lucide-react';
 
 interface HackHubPageProps {
   onBackToMain?: () => void;
@@ -27,6 +27,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [selectedType, setSelectedType] = useState('all');
   const [events, setEvents] = useState<HackEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authBannerError, setAuthBannerError] = useState('');
+  const [eventDetailsRefreshKey, setEventDetailsRefreshKey] = useState(0);
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(hackApi.getCurrentUser());
@@ -60,12 +62,53 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     };
   };
 
+  const openEventView = (evt: HackEvent, pushUrl = true) => {
+    setSelectedEvent(evt);
+    if (pushUrl && typeof window !== 'undefined') {
+      const targetUrl = `/e/${encodeURIComponent(evt.slug)}${
+        evt.approvalStatus === 'private' ? `?secret=${encodeURIComponent(evt.privateAccessCode)}` : ''
+      }`;
+      if (window.location.pathname + window.location.search !== targetUrl) {
+        window.history.pushState({ eventSlug: evt.slug }, '', targetUrl);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const navigateToTab = (tab: NavTab, pushUrl = true) => {
+    setSelectedEvent(null);
+    setActiveTab(tab);
+    if (pushUrl && typeof window !== 'undefined') {
+      const targetUrl = tab === 'events' ? '/' : `/?tab=${encodeURIComponent(tab)}`;
+      if (window.location.pathname + window.location.search !== targetUrl) {
+        window.history.pushState({ tab }, '', targetUrl);
+      }
+    }
+  };
+
   // Sync Google OAuth / Email Auth session cleanly on mount & auth state changes
   useEffect(() => {
-    hackApi.syncSupabaseSession().then((syncedUser) => {
+    // Capture OAuth redirect error parameters if present and clean URL
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const oauthErr =
+        searchParams.get('error_description') ||
+        hashParams.get('error_description') ||
+        searchParams.get('error') ||
+        hashParams.get('error');
+      if (oauthErr) {
+        setAuthBannerError(oauthErr.replace(/\+/g, ' '));
+        const cleanUrl = window.location.pathname || '/';
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    }
+
+    hackApi.syncSupabaseSession().then(async (syncedUser) => {
       if (syncedUser) {
         setCurrentUser(syncedUser);
-        setMyPasses(hackApi.getMyPasses());
+        const syncedPasses = await hackApi.syncMyPasses();
+        setMyPasses(syncedPasses);
       }
     });
 
@@ -74,7 +117,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         const synced = await hackApi.syncSupabaseSession();
         if (synced) {
           setCurrentUser(synced);
-          setMyPasses(hackApi.getMyPasses());
+          const syncedPasses = await hackApi.syncMyPasses();
+          setMyPasses(syncedPasses);
         }
       } else if (eventName === 'SIGNED_OUT') {
         setCurrentUser(null);
@@ -91,28 +135,32 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     setLoading(true);
     const { secretCode, eventSlug, tab } = getUrlParams();
     
-    // Fetch live public events (unlocked by secret link if provided)
-    const evts = await hackApi.getPublicEvents(selectedType, secretCode || undefined);
+    // Fetch live public events (unlocked by secret link if provided) and global boards in parallel
+    const [evts, t, p] = await Promise.all([
+      hackApi.getPublicEvents(selectedType, secretCode || undefined),
+      hackApi.getTeams(),
+      hackApi.getProjects(),
+    ]);
     setEvents(evts);
-    setMyPasses(hackApi.getMyPasses());
+    setAllTeams(t);
+    setAllProjects(p);
 
-    if (evts.length > 0) {
-      const t = await hackApi.getTeams(evts[0].slug);
-      const p = await hackApi.getProjects(evts[0].slug);
-      setAllTeams(t);
-      setAllProjects(p);
+    if (hackApi.getCurrentUser()) {
+      const syncedPasses = await hackApi.syncMyPasses();
+      setMyPasses(syncedPasses);
+    } else {
+      setMyPasses(hackApi.getMyPasses());
     }
 
     // Direct event deep-link via URL
+    let resolvedTarget: HackEvent | null = null;
     if (eventSlug) {
-      const target = await hackApi.getEventBySlug(eventSlug, secretCode || undefined);
-      if (target) {
-        setSelectedEvent(target);
-      }
+      resolvedTarget = await hackApi.getEventBySlug(eventSlug, secretCode || undefined);
+      setSelectedEvent(resolvedTarget);
     }
 
-    // Direct tab parameter
-    if (tab && !selectedEvent) {
+    // Direct tab parameter (only if no event view active)
+    if (tab && !resolvedTarget) {
       if (tab === 'organizer-portal' || tab === 'student-dashboard') {
         setActiveTab('dashboard');
       } else {
@@ -126,6 +174,26 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   useEffect(() => {
     fetchAllData();
   }, [selectedType]);
+
+  // Handle browser Back/Forward navigation smoothly
+  useEffect(() => {
+    const handlePopState = async () => {
+      const { eventSlug, secretCode, tab } = getUrlParams();
+      if (eventSlug) {
+        const target = await hackApi.getEventBySlug(eventSlug, secretCode || undefined);
+        setSelectedEvent(target);
+      } else {
+        setSelectedEvent(null);
+        if (tab) {
+          setActiveTab(tab === 'organizer-portal' || tab === 'student-dashboard' ? 'dashboard' : tab);
+        } else {
+          setActiveTab('events');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Private Core Team Shortcut: Ctrl+Shift+M or Cmd+Shift+M opens Master Gate
   useEffect(() => {
@@ -156,6 +224,14 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     return events.find(e => e.isFeatured) || null;
   }, [events]);
 
+  const nextUpcomingEvent = useMemo(() => {
+    const now = Date.now();
+    const upcoming = events
+      .filter((e) => new Date(e.endTime).getTime() >= now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    return upcoming[0] || featuredEvent || events[0] || null;
+  }, [events, featuredEvent]);
+
   const totalHackersCount = useMemo(() => {
     return events.reduce((acc, curr) => acc + (curr.rsvpCount || 0), 0);
   }, [events]);
@@ -163,9 +239,10 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const handleRsvpSuccess = (rsvp: HackerRSVP) => {
     setRsvpModalEvent(null);
     setViewingPass(rsvp);
-    setViewingPassEventTitle(events.find(e => e.id === rsvp.eventId)?.title || 'Nerds Room Event');
+    setViewingPassEventTitle(events.find(e => e.id === rsvp.eventId)?.title || selectedEvent?.title || 'Nerds Room Event');
     setMyPasses(hackApi.getMyPasses());
     setEvents(prev => prev.map(e => e.id === rsvp.eventId ? { ...e, rsvpCount: (e.rsvpCount || 0) + 1 } : e));
+    setSelectedEvent(prev => prev && prev.id === rsvp.eventId ? { ...prev, rsvpCount: (prev.rsvpCount || 0) + 1 } : prev);
   };
 
   const handleUpvoteProject = async (projectId: string) => {
@@ -173,10 +250,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     setAllProjects(prev => prev.map(p => p.id === projectId ? { ...p, upvotes: newUpvotes } : p));
   };
 
-  const handleLogout = () => {
-    hackApi.logout();
+  const handleLogout = async () => {
+    await hackApi.logout();
     setCurrentUser(null);
-    setActiveTab('events');
+    setMyPasses([]);
+    navigateToTab('events');
   };
 
   const handleSwitchUser = (user: UserAccount) => {
@@ -190,10 +268,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       {/* Top Floating Pill Navbar */}
       <HackNavbar
         activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          setSelectedEvent(null);
-        }}
+        setActiveTab={(tab) => navigateToTab(tab)}
         onOpenCloudStatus={() => setCloudStatusOpen(true)}
         onOpenAuth={() => setAuthModalOpen(true)}
         onOpenCreateEvent={() => setCreateEventModalOpen(true)}
@@ -204,11 +279,32 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         onSwitchUser={handleSwitchUser}
       />
 
+      {authBannerError && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[900] max-w-lg w-[92%] bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 shadow-xl flex items-start justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-black">Authentication Notice</div>
+              <p className="mt-0.5">{authBannerError}</p>
+            </div>
+          </div>
+          <button onClick={() => setAuthBannerError('')} className="p-1 rounded-lg hover:bg-red-100">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Deep-dive Event Details View */}
       {selectedEvent ? (
         <HackEventDetails
           event={selectedEvent}
-          onBack={() => setSelectedEvent(null)}
+          refreshKey={eventDetailsRefreshKey}
+          existingPass={myPasses.find((p) => p.eventId === selectedEvent.id) || null}
+          onViewPass={(rsvp) => {
+            setViewingPass(rsvp);
+            setViewingPassEventTitle(selectedEvent.title);
+          }}
+          onBack={() => navigateToTab(activeTab)}
           onRsvpClick={() => setRsvpModalEvent(selectedEvent)}
           onCreateTeamClick={() => setCreateTeamEvent(selectedEvent)}
           onSubmitProjectClick={() => setSubmitProjectEvent(selectedEvent)}
@@ -217,26 +313,47 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         <>
           {/* COMMON USER & ORGANIZER DASHBOARD */}
           {(activeTab === 'dashboard' || activeTab === 'student-dashboard' || activeTab === 'organizer-portal') && (
-            <UserDashboard
-              currentUser={currentUser || DEMO_USERS.student}
-              initialMode={activeTab === 'organizer-portal' ? 'hosting' : 'attending'}
-              onViewPass={(rsvp, title) => {
-                setViewingPass(rsvp);
-                setViewingPassEventTitle(title);
-              }}
-              onBrowseEvents={() => setActiveTab('events')}
-              onOpenCreateEvent={() => setCreateEventModalOpen(true)}
-              onOpenCheckInDesk={() => setOrganizerModalOpen(true)}
-              onSelectEvent={(evt) => setSelectedEvent(evt)}
-            />
+            currentUser ? (
+              <UserDashboard
+                currentUser={currentUser}
+                initialMode={activeTab === 'organizer-portal' ? 'hosting' : 'attending'}
+                onViewPass={(rsvp, title) => {
+                  setViewingPass(rsvp);
+                  setViewingPassEventTitle(title);
+                }}
+                onBrowseEvents={() => navigateToTab('events')}
+                onOpenCreateEvent={() => setCreateEventModalOpen(true)}
+                onOpenCheckInDesk={() => setOrganizerModalOpen(true)}
+                onSelectEvent={(evt) => openEventView(evt)}
+              />
+            ) : (
+              <main className="max-w-xl mx-auto px-4 pt-28 pb-16">
+                <div className="bg-white border-2 border-slate-200 rounded-3xl p-8 text-center shadow-lg space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-nerdBlue flex items-center justify-center mx-auto">
+                    <LogIn className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-xl font-black text-nerdDark">Sign In to View Your Dashboard</h2>
+                  <p className="text-xs text-slate-500">
+                    Access your registered hackathon passes, track active rounds, or manage events you host.
+                  </p>
+                  <button
+                    onClick={() => setAuthModalOpen(true)}
+                    className="px-6 py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all"
+                  >
+                    Sign In / Create Account
+                  </button>
+                </div>
+              </main>
+            )
           )}
 
           {/* DEDICATED SEPARATE MASTER ADMIN PANEL (PROTECTED GATE) */}
           {activeTab === 'admin-panel' && (
             <MasterAdminDashboard
-              onInspectEvent={(evt) => setSelectedEvent(evt)}
-              onBrowseLiveSite={() => setActiveTab('events')}
-              onLockSession={() => setActiveTab('events')}
+              onInspectEvent={(evt) => openEventView(evt)}
+              onBrowseLiveSite={() => navigateToTab('events')}
+              onLockSession={() => navigateToTab('events')}
+              onDataMutated={() => fetchAllData()}
             />
           )}
 
@@ -250,8 +367,10 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                 selectedType={selectedType}
                 setSelectedType={setSelectedType}
                 totalHackers={totalHackersCount}
+                eventsCount={events.length}
                 featuredEvent={featuredEvent}
-                onSelectFeatured={(evt) => setSelectedEvent(evt)}
+                nextEvent={nextUpcomingEvent}
+                onSelectFeatured={(evt) => openEventView(evt)}
               />
 
               <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -294,7 +413,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                       <EventCard
                         key={evt.id}
                         event={evt}
-                        onSelect={(e) => setSelectedEvent(e)}
+                        onSelect={(e) => openEventView(e)}
                         onQuickRsvp={(e) => setRsvpModalEvent(e)}
                       />
                     ))}
@@ -320,16 +439,37 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   </p>
                 </div>
                 <button
-                  onClick={() => setCreateTeamEvent(events[0] || null)}
+                  onClick={() => {
+                    if (events.length > 0) {
+                      setCreateTeamEvent(events[0]);
+                    } else {
+                      setCreateEventModalOpen(true);
+                    }
+                  }}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                 >
                   <Plus className="w-4 h-4 text-nerdLime" />
-                  <span>Post Team Listing</span>
+                  <span>{events.length > 0 ? 'Post Team Listing' : 'Host First Event'}</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {allTeams.map((team) => (
+              {allTeams.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-sm">
+                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-slate-700">No open team listings yet</h3>
+                  <p className="text-xs text-slate-400 mt-1 mb-5">
+                    Post your hackathon pitch and find co-builders in AI, Systems, Hardware, or Design.
+                  </p>
+                  <button
+                    onClick={() => (events.length > 0 ? setCreateTeamEvent(events[0]) : setCreateEventModalOpen(true))}
+                    className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                  >
+                    + Post Team Listing
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {allTeams.map((team) => (
                   <div key={team.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -363,7 +503,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </a>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </main>
           )}
 
@@ -383,16 +524,37 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   </p>
                 </div>
                 <button
-                  onClick={() => setSubmitProjectEvent(events[0] || null)}
+                  onClick={() => {
+                    if (events.length > 0) {
+                      setSubmitProjectEvent(events[0]);
+                    } else {
+                      setCreateEventModalOpen(true);
+                    }
+                  }}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                 >
                   <Plus className="w-4 h-4 text-nerdLime" />
-                  <span>Submit Hack</span>
+                  <span>{events.length > 0 ? 'Submit Hack' : 'Host First Event'}</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {allProjects.map((proj) => (
+              {allProjects.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-sm">
+                  <Rocket className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-slate-700">No shipped projects yet</h3>
+                  <p className="text-xs text-slate-400 mt-1 mb-5">
+                    Submit your GitHub repository and live demo URL to get featured and collect community upvotes.
+                  </p>
+                  <button
+                    onClick={() => (events.length > 0 ? setSubmitProjectEvent(events[0]) : setCreateEventModalOpen(true))}
+                    className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                  >
+                    + Submit Your Hack
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {allProjects.map((proj) => (
                   <div key={proj.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm">
                     <div className="h-44 bg-slate-100 overflow-hidden relative">
                       <img src={proj.coverImage} alt={proj.title} className="w-full h-full object-cover" />
@@ -440,7 +602,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </main>
           )}
 
@@ -547,7 +710,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           onClose={() => setCreateEventModalOpen(false)}
           onEventCreated={(newEvent) => {
             setEvents(prev => [newEvent, ...prev]);
-            setSelectedEvent(newEvent);
+            openEventView(newEvent);
           }}
         />
       )}
@@ -575,7 +738,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           onTeamCreated={(newTeam) => {
             setAllTeams(prev => [newTeam, ...prev]);
             setCreateTeamEvent(null);
-            setActiveTab('teams');
+            if (selectedEvent) {
+              setEventDetailsRefreshKey(k => k + 1);
+            } else {
+              navigateToTab('teams');
+            }
           }}
         />
       )}
@@ -587,7 +754,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           onProjectSubmitted={(newProj) => {
             setAllProjects(prev => [newProj, ...prev]);
             setSubmitProjectEvent(null);
-            setActiveTab('shipyard');
+            if (selectedEvent) {
+              setEventDetailsRefreshKey(k => k + 1);
+            } else {
+              navigateToTab('shipyard');
+            }
           }}
         />
       )}
@@ -595,6 +766,9 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       {organizerModalOpen && (
         <OrganizerCheckInModal
           onClose={() => setOrganizerModalOpen(false)}
+          onCheckInSuccess={() => {
+            setMyPasses(hackApi.getMyPasses());
+          }}
         />
       )}
 

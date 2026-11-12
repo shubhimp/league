@@ -42,7 +42,7 @@ Built strictly in the exact light-theme visual design system of the main Nerds R
 ### 5. 🚀 Additional Features
 - **Team Matchmaking Board:** Find teammates skilled in AI, Rust, Hardware, and UI.
 - **Project Shipyard:** Hack submission showcase with peer upvoting, repo links, and demo previews.
-- **Embedded Sandbox Engine:** Runs with 100% functionality out of the box in offline/local storage mode, with instant option to connect a self-hosted backend.
+- **Serverless Cloud Engine:** Powered by Supabase PostgreSQL & Auth, Cloudinary Media CDN, and Vercel Edge Functions (`api/*`) with automatic local cache resilience.
 
 ---
 
@@ -71,8 +71,7 @@ league-platform/
 │   │   ├── TerminalHero.tsx           # Hero section with countdown and featured spotlight
 │   │   ├── EventCard.tsx              # Event cards with featured/private status badges
 │   │   ├── HackEventDetails.tsx       # Event details, rounds schedule, and important links
-│   │   ├── StudentDashboard.tsx       # Student dashboard with round deadlines and ticket passes
-│   │   ├── OrganizerDashboard.tsx     # Organizer portal with attendee roster and CSV export
+│   │   ├── UserDashboard.tsx          # Unified student tickets & organizer hosting hub
 │   │   ├── MasterAdminDashboard.tsx   # Master admin moderation panel with status dropdowns
 │   │   ├── HackerRSVPModal.tsx        # Registration modal
 │   │   ├── HackerPassModal.tsx        # Verifiable QR ticket pass
@@ -108,24 +107,7 @@ league-platform/
 
 ## 🌐 Deploying to `league.nerdsroom.org`
 
-### Option A: Vercel / Cloudflare Pages / Netlify (Recommended for Frontend)
-1. Push this folder to a new repository on GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: initial commit for league.nerdsroom.org"
-   git remote add origin https://github.com/YOUR_ORG/league.nerdsroom.org.git
-   git branch -M main
-   git push -u origin main
-   ```
-2. Import the repository into Vercel / Cloudflare Pages.
-3. Configure your custom domain to point `league.nerdsroom.org` to the deployment.
-
-### Option B: Self-Hosted Server
-If deploying the backend server:
-```bash
-cd server
-npm install
-npm start
-```
-Or run `bash deploy.sh` with PM2.
+1. Push `league-platform` to GitHub (`shubhimp/league`).
+2. Import into Vercel (`https://vercel.com`) with Framework Preset **Vite**.
+3. Configure Environment Variables in Vercel (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `MASTER_ADMIN_ID`, `MASTER_ADMIN_PASS`).
+4. Point DNS `CNAME league -> cname.vercel-dns.com` to serve `https://league.nerdsroom.org`.

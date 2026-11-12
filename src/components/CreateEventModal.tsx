@@ -8,6 +8,13 @@ interface CreateEventModalProps {
   onEventCreated: (event: HackEvent) => void;
 }
 
+const PRESET_BANNERS = [
+  { label: 'Matrix Dark', url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Cyber Circuit', url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'AI Terminal', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Builder Arena', url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80' },
+];
+
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onEventCreated }) => {
   const currentUser = hackApi.getCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -15,15 +22,23 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
   const [eventType, setEventType] = useState<EventType>('hackathon');
-  const [location, setLocation] = useState('Online / Discord');
+  const [venueType, setVenueType] = useState<'hybrid' | 'in-person' | 'virtual'>('hybrid');
+  const [location, setLocation] = useState('Bengaluru / Online Discord');
+  const [startDate, setStartDate] = useState(
+    new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date(Date.now() + 86400000 * 9).toISOString().split('T')[0]
+  );
   const [prizeAmount, setPrizeAmount] = useState('$5,000');
   const [tagsStr, setTagsStr] = useState('AI Agents, Rust, Hardware');
   const [organizerName, setOrganizerName] = useState(currentUser?.name || 'Aditya Sharma');
   const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Lead Organizer');
-  const [coverUrl, setCoverUrl] = useState('https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80');
+  const [coverUrl, setCoverUrl] = useState(PRESET_BANNERS[0].url);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [visibility, setVisibility] = useState<'approved' | 'private'>('approved');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,29 +129,39 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || submitting) return;
 
-    const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
-    const prizes = prizeAmount ? [{ title: 'Main Prize Pool', amount: prizeAmount, description: 'Cash bounties and grants' }] : [];
+    setSubmitting(true);
+    try {
+      const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
+      const prizes = prizeAmount ? [{ title: 'Main Prize Pool', amount: prizeAmount, description: 'Cash bounties and grants' }] : [];
+      const startTimeIso = startDate ? new Date(`${startDate}T09:00:00.000Z`).toISOString() : new Date().toISOString();
+      const endTimeIso = endDate ? new Date(`${endDate}T18:00:00.000Z`).toISOString() : new Date(Date.now() + 86400000 * 2).toISOString();
 
-    const newEvent = await hackApi.createEvent({
-      title: title.trim(),
-      tagline: tagline.trim() || 'A Nerds Room Event',
-      description: description.trim() || 'Join us for an exciting hackathon with intense building and great prizes.',
-      eventType,
-      location,
-      organizerName: organizerName.trim() || 'Aditya Sharma',
-      organizerOrg: organizerOrg.trim() || 'Nerds Room Lead Organizer',
-      coverUrl: coverUrl.trim(),
-      approvalStatus: visibility,
-      tags,
-      prizes,
-      rounds,
-      importantLinks: links
-    });
+      const newEvent = await hackApi.createEvent({
+        title: title.trim(),
+        tagline: tagline.trim() || 'A Nerds Room Event',
+        description: description.trim() || 'Join us for an exciting hackathon with intense building and great prizes.',
+        eventType,
+        venueType,
+        location: location.trim() || 'Online / Discord',
+        startTime: startTimeIso,
+        endTime: endTimeIso,
+        organizerName: organizerName.trim() || 'Aditya Sharma',
+        organizerOrg: organizerOrg.trim() || 'Nerds Room Lead Organizer',
+        coverUrl: coverUrl.trim(),
+        approvalStatus: visibility,
+        tags,
+        prizes,
+        rounds,
+        importantLinks: links
+      });
 
-    onEventCreated(newEvent);
-    onClose();
+      onEventCreated(newEvent);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -210,6 +235,50 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
               />
             </div>
 
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">About Event / Detailed Description</label>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe tracks, judging criteria, problem statements, and rules..."
+                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Event Format</label>
+                <select
+                  value={venueType}
+                  onChange={(e) => setVenueType(e.target.value as 'hybrid' | 'in-person' | 'virtual')}
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold"
+                >
+                  <option value="hybrid">Hybrid</option>
+                  <option value="in-person">In-Person</option>
+                  <option value="virtual">Virtual / Online</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Venue / City</label>
@@ -232,6 +301,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                   className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold text-nerdBlue"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Tech Tags (comma separated)</label>
+              <input
+                type="text"
+                value={tagsStr}
+                onChange={(e) => setTagsStr(e.target.value)}
+                placeholder="AI Agents, Rust, Linux, Web3"
+                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              />
             </div>
 
             {/* Organizer Details & Visibility (Crucial Feature) */}
@@ -291,6 +371,30 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                   placeholder="https://res.cloudinary.com/hanndfsz/... or image URL"
                   className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none text-[11px]"
                 />
+                {coverUrl && (
+                  <div className="mt-2 relative h-16 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                    <img src={coverUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {PRESET_BANNERS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setCoverUrl(p.url);
+                        setUploadError('');
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
+                        coverUrl === p.url
+                          ? 'bg-nerdBlue text-white border-nerdBlue'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-nerdBlue'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
                 {uploadError && (
                   <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">{uploadError}</p>
                 )}
@@ -349,7 +453,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                     value={round.title}
                     onChange={(e) => {
                       const updated = [...rounds];
-                      updated[idx].title = e.target.value;
+                      updated[idx] = { ...updated[idx], title: e.target.value };
                       setRounds(updated);
                     }}
                     placeholder="Round Title"
@@ -363,7 +467,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                         value={round.startDate}
                         onChange={(e) => {
                           const updated = [...rounds];
-                          updated[idx].startDate = e.target.value;
+                          updated[idx] = { ...updated[idx], startDate: e.target.value };
                           setRounds(updated);
                         }}
                         className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px]"
@@ -376,7 +480,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                         value={round.endDate}
                         onChange={(e) => {
                           const updated = [...rounds];
-                          updated[idx].endDate = e.target.value;
+                          updated[idx] = { ...updated[idx], endDate: e.target.value };
                           setRounds(updated);
                         }}
                         className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px]"
@@ -450,9 +554,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+              disabled={submitting}
+              className="px-6 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span>Publish Event</span>
+              <span>{submitting ? 'Publishing Event...' : 'Publish Event'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { HackEvent, EventApprovalStatus, UserRole, HackerRSVP } from '../types';
+import { HackEvent, EventApprovalStatus, UserRole, HackerRSVP, UserAccount } from '../types';
 import { hackApi, DEMO_USERS } from '../services/hackApi';
 import { 
   ShieldAlert, CheckCircle2, Lock, XCircle, Star, ExternalLink, 
   Search, Users, Layers, Award, Sparkles, KeyRound, Download, 
-  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck
+  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck, Copy, Trash2
 } from 'lucide-react';
 
 interface MasterAdminDashboardProps {
   onInspectEvent: (event: HackEvent) => void;
   onBrowseLiveSite: () => void;
   onLockSession?: () => void;
+  onDataMutated?: () => void;
 }
 
 export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   onInspectEvent,
   onBrowseLiveSite,
   onLockSession,
+  onDataMutated,
 }) => {
   // Authentication gate state (verified strictly via /api/admin-verify)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(hackApi.isMasterAdminAuthenticated());
@@ -28,6 +30,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   // Dashboard state
   const [events, setEvents] = useState<HackEvent[]>([]);
   const [allAttendees, setAllAttendees] = useState<{ rsvp: HackerRSVP; event?: HackEvent }[]>([]);
+  const [profiles, setProfiles] = useState<UserAccount[]>([]);
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
   const [selectedEventFilter, setSelectedEventFilter] = useState('all');
@@ -37,10 +41,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   const loadAllData = async () => {
     setLoading(true);
-    const allEvents = await hackApi.getMasterAdminEvents();
-    const attendeesData = await hackApi.getAllAttendees();
+    const [allEvents, attendeesData, fetchedProfiles] = await Promise.all([
+      hackApi.getMasterAdminEvents(),
+      hackApi.getAllAttendees(),
+      hackApi.getProfiles(),
+    ]);
     setEvents(allEvents);
     setAllAttendees(attendeesData);
+    setProfiles(fetchedProfiles);
     setLoading(false);
   };
 
@@ -79,6 +87,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     const updated = await hackApi.updateEventApprovalStatus(eventId, newStatus);
     if (updated) {
       setEvents(prev => prev.map(e => e.id === eventId ? { ...e, approvalStatus: newStatus } : e));
+      if (onDataMutated) onDataMutated();
     }
   };
 
@@ -86,6 +95,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     const updated = await hackApi.toggleEventFeatured(eventId, !currentFeatured);
     if (updated) {
       setEvents(prev => prev.map(e => e.id === eventId ? { ...e, isFeatured: !currentFeatured } : e));
+      if (onDataMutated) onDataMutated();
+    }
+  };
+
+  const handleDeleteEvent = async (evt: HackEvent) => {
+    if (!window.confirm(`Permanently delete "${evt.title}" and its linked RSVPs, teams, and projects?`)) {
+      return;
+    }
+    const ok = await hackApi.deleteEvent(evt.id);
+    if (ok) {
+      setEvents(prev => prev.filter(e => e.id !== evt.id));
+      setAllAttendees(prev => prev.filter(item => item.rsvp.eventId !== evt.id));
+      if (onDataMutated) onDataMutated();
+    }
+  };
+
+  const copyPrivateLink = (evt: HackEvent) => {
+    const url = `${window.location.origin}/e/${evt.slug}?secret=${evt.privateAccessCode}`;
+    navigator.clipboard.writeText(url);
+    setCopiedEventId(evt.id);
+    setTimeout(() => setCopiedEventId(null), 2000);
+  };
+
+  const handleProfileRoleChange = async (profileId: string, newRole: UserRole) => {
+    const ok = await hackApi.updateProfileRole(profileId, newRole);
+    if (ok) {
+      setProfiles(prev => prev.map(p => p.id === profileId ? { ...p, role: newRole } : p));
     }
   };
 
@@ -474,7 +510,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
                     {/* Actions */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => onInspectEvent(evt)}
                           className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-nerdBlue hover:text-white text-slate-700 font-bold transition-colors"
@@ -482,10 +518,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           Inspect
                         </button>
                         {evt.approvalStatus === 'private' && (
-                          <span className="text-[10px] font-mono text-amber-800 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                            ?secret={evt.privateAccessCode}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyPrivateLink(evt)}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-xl border border-amber-200 font-bold transition-colors"
+                            title="Copy private invite link"
+                          >
+                            {copiedEventId === evt.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedEventId === evt.id ? 'Copied Link!' : 'Copy Secret Link'}</span>
+                          </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(evt)}
+                          className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors"
+                          title="Delete Event"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
 
@@ -613,26 +663,59 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       {/* TAB 3: PLATFORM ROLE MANAGER */}
       {/* ===================================================================== */}
       {activeTab === 'roles' && (
-        <div className="bg-white border-2 border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="bg-white border-2 border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-6">
           <div>
-            <h3 className="text-base font-bold text-slate-900">Platform User Accounts & Permissions</h3>
+            <h3 className="text-base font-bold text-slate-900">Registered Platform Members & Roles ({profiles.length})</h3>
             <p className="text-xs text-slate-500">
-              Overview of roles: Students participate in rounds, Organizers host events, and Master Admins have global authority.
+              Live accounts synced from Supabase <code className="font-mono">league_profiles</code>. Promote community members to Organizer or Master Admin.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            {Object.values(DEMO_USERS).map((user) => (
-              <div key={user.id} className="p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/70 space-y-3">
-                <div className="flex items-center gap-3">
-                  <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-xl border border-slate-200 bg-white" />
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{user.name}</h4>
-                    <span className="text-xs text-slate-500">{user.email}</span>
+          {profiles.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+              No users have signed up via Google OAuth or Email yet. New registrations appear here automatically.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {profiles.map((user) => (
+                <div key={user.id} className="p-5 rounded-2xl border-2 border-slate-200 bg-white space-y-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-xl border border-slate-200 bg-slate-50 shrink-0" />
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-slate-900 text-sm truncate">{user.name}</h4>
+                      <span className="text-xs text-slate-500 block truncate">{user.email}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleProfileRoleChange(user.id, e.target.value as UserRole)}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-nerdBlue"
+                    >
+                      <option value="student">Student</option>
+                      <option value="organizer">Organizer</option>
+                      <option value="master_admin">Master Admin</option>
+                    </select>
+                    <span className="text-[11px] font-bold text-emerald-700">Synced</span>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
 
-                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-200">
+            <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider mb-3">Built-in Quick Test Profiles</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.values(DEMO_USERS).map((user) => (
+                <div key={user.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-xl border border-slate-200 bg-white" />
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-xs">{user.name}</h4>
+                      <span className="text-[11px] text-slate-500">{user.email}</span>
+                    </div>
+                  </div>
                   <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
                     user.role === 'organizer'
                       ? 'bg-blue-100 text-blue-800 border border-blue-200'
@@ -640,10 +723,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}>
                     {user.role}
                   </span>
-                  <span className="text-[11px] font-bold text-slate-400">Verified</span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
