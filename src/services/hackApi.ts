@@ -406,9 +406,10 @@ class HackApiService {
     name: string;
     email: string;
     password: string;
-    role: 'student' | 'organizer';
+    role?: 'student' | 'organizer';
   }): Promise<{ user?: UserAccount; requiresConfirmation?: boolean; error?: string }> {
     const emailClean = params.email.trim().toLowerCase();
+    const assignedRole = params.role || 'student';
     const { data, error } = await supabase.auth.signUp({
       email: emailClean,
       password: params.password,
@@ -416,7 +417,7 @@ class HackApiService {
         emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
         data: {
           full_name: params.name.trim(),
-          role: params.role,
+          role: assignedRole,
         },
       },
     });
@@ -430,10 +431,10 @@ class HackApiService {
       id: userId,
       name: params.name.trim(),
       email: emailClean,
-      role: params.role,
+      role: assignedRole,
       avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(params.name.trim())}`,
       githubHandle: params.name.trim().replace(/\s+/g, '').toLowerCase(),
-      college: params.role === 'organizer' ? 'Event Organizer' : 'Student Hacker',
+      college: 'Nerds Room Member',
     };
 
     // Save profile in Supabase league_profiles table
@@ -551,7 +552,7 @@ class HackApiService {
         meta.picture ||
         `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}`,
       githubHandle: name.replace(/\s+/g, '').toLowerCase(),
-      college: role === 'organizer' ? 'Event Organizer' : 'Nerds Room Member',
+      college: 'Nerds Room Member',
     };
 
     await this.upsertProfile(account, authUser.app_metadata?.provider || 'google');

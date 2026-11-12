@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Lock, Mail, Shield, Sparkles, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, User, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { hackApi } from '../services/hackApi';
 import { UserAccount } from '../types';
 
@@ -13,7 +13,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'student' | 'organizer'>('student');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
@@ -35,7 +34,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
         name: name.trim() || email.split('@')[0],
         email,
         password,
-        role,
       });
       setSubmitting(false);
 
@@ -52,7 +50,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
         onClose();
       }
     } else {
-      const res = await hackApi.signInWithEmail(email, password, role);
+      const res = await hackApi.signInWithEmail(email, password);
       setSubmitting(false);
 
       if (res.error) {
@@ -69,15 +67,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
     setSubmitting(true);
-    const res = await hackApi.signInWithGoogle(role);
+    const res = await hackApi.signInWithGoogle();
     if (res.error) {
       setSubmitting(false);
       setErrorMsg(res.error);
     }
   };
 
-  const handleQuickDemo = (demoRole: 'student' | 'organizer') => {
-    const user = hackApi.switchRole(demoRole);
+  const handleQuickDemo = () => {
+    const user = hackApi.switchRole('student');
     onSuccess(user);
     onClose();
   };
@@ -94,7 +92,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
               <span className="text-nerdLime">league.</span>
             </div>
             <p className="text-xs text-blue-100 mt-0.5">
-              {mode === 'signin' ? 'Welcome back! Sign in to continue.' : 'Create your hacker profile in 10 seconds.'}
+              {mode === 'signin' ? 'Welcome back! Sign in to continue.' : 'Create your Nerds Room account in 10 seconds.'}
             </p>
           </div>
           <button
@@ -189,44 +187,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Role selector */}
-          <div>
-            <label className="block text-slate-700 font-bold mb-1.5">I am joining as:</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setRole('student')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
-                  role === 'student'
-                    ? 'border-nerdBlue bg-blue-50/70 text-nerdBlue font-bold ring-2 ring-nerdBlue/20'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 shrink-0 text-nerdBlue mt-0.5" />
-                <div>
-                  <div className="font-bold text-slate-900">Student Hacker</div>
-                  <div className="text-[10px] text-slate-500 font-normal">RSVP & submit hacks</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRole('organizer')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
-                  role === 'organizer'
-                    ? 'border-nerdBlue bg-blue-50/70 text-nerdBlue font-bold ring-2 ring-nerdBlue/20'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                }`}
-              >
-                <Shield className="w-4 h-4 shrink-0 text-nerdBlue mt-0.5" />
-                <div>
-                  <div className="font-bold text-slate-900">Organizer</div>
-                  <div className="text-[10px] text-slate-500 font-normal">Create events & rounds</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
           {errorMsg && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -286,25 +246,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
             <span>Continue with Google</span>
           </button>
 
-          {/* Quick Demo Shortcuts (Only Member and Organizer) */}
+          {/* Quick Demo Shortcut */}
           <div className="pt-3 border-t border-slate-100 text-center">
-            <span className="text-[11px] text-slate-400 block mb-2">⚡ Quick 1-Click Test Sign-In:</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('student')}
-                className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 text-xs font-bold transition-colors truncate"
-              >
-                🎓 Student Hacker (Rohan)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('organizer')}
-                className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-nerdBlue text-slate-700 text-xs font-bold transition-colors truncate"
-              >
-                🛠️ Organizer Host (Aditya)
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleQuickDemo}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-nerdBlue text-slate-700 text-xs font-bold transition-colors"
+            >
+              ⚡ Quick 1-Click Test Account Sign-In
+            </button>
           </div>
 
         </form>

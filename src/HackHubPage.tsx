@@ -123,6 +123,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       } else if (eventName === 'SIGNED_OUT') {
         setCurrentUser(null);
         setMyPasses([]);
+        setCreateEventModalOpen(false);
+        setOrganizerModalOpen(false);
       }
     });
 
@@ -161,7 +163,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
     // Direct tab parameter (only if no event view active)
     if (tab && !resolvedTarget) {
-      if (tab === 'organizer-portal' || tab === 'student-dashboard') {
+      if (tab === 'student-dashboard') {
         setActiveTab('dashboard');
       } else {
         setActiveTab(tab);
@@ -185,7 +187,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       } else {
         setSelectedEvent(null);
         if (tab) {
-          setActiveTab(tab === 'organizer-portal' || tab === 'student-dashboard' ? 'dashboard' : tab);
+          setActiveTab(tab === 'student-dashboard' ? 'dashboard' : tab);
         } else {
           setActiveTab('events');
         }
@@ -254,7 +256,25 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     await hackApi.logout();
     setCurrentUser(null);
     setMyPasses([]);
+    setCreateEventModalOpen(false);
+    setOrganizerModalOpen(false);
     navigateToTab('events');
+  };
+
+  const handleOpenCreateEvent = () => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setCreateEventModalOpen(true);
+  };
+
+  const handleOpenCheckInDesk = () => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setOrganizerModalOpen(true);
   };
 
   const handleSwitchUser = (user: UserAccount) => {
@@ -271,8 +291,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         setActiveTab={(tab) => navigateToTab(tab)}
         onOpenCloudStatus={() => setCloudStatusOpen(true)}
         onOpenAuth={() => setAuthModalOpen(true)}
-        onOpenCreateEvent={() => setCreateEventModalOpen(true)}
-        onOpenCheckInDesk={() => setOrganizerModalOpen(true)}
+        onOpenCreateEvent={handleOpenCreateEvent}
+        onOpenCheckInDesk={handleOpenCheckInDesk}
         currentUser={currentUser}
         onLogout={handleLogout}
         myPassesCount={myPasses.length}
@@ -322,8 +342,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   setViewingPassEventTitle(title);
                 }}
                 onBrowseEvents={() => navigateToTab('events')}
-                onOpenCreateEvent={() => setCreateEventModalOpen(true)}
-                onOpenCheckInDesk={() => setOrganizerModalOpen(true)}
+                onOpenCreateEvent={handleOpenCreateEvent}
+                onOpenCheckInDesk={handleOpenCheckInDesk}
                 onSelectEvent={(evt) => openEventView(evt)}
               />
             ) : (
@@ -388,13 +408,15 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setCreateEventModalOpen(true)}
-                    className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-sm transition-all"
-                  >
-                    <Plus className="w-4 h-4 text-nerdLime" />
-                    <span>Host New Event</span>
-                  </button>
+                  {currentUser && (
+                    <button
+                      onClick={handleOpenCreateEvent}
+                      className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-sm transition-all"
+                    >
+                      <Plus className="w-4 h-4 text-nerdLime" />
+                      <span>Host New Event</span>
+                    </button>
+                  )}
                 </div>
 
                 {loading ? (
@@ -438,19 +460,23 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     Solo hackers looking for teammates in AI, Rust, Hardware, and UI. Connect directly or post your idea.
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (events.length > 0) {
-                      setCreateTeamEvent(events[0]);
-                    } else {
-                      setCreateEventModalOpen(true);
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
-                >
-                  <Plus className="w-4 h-4 text-nerdLime" />
-                  <span>{events.length > 0 ? 'Post Team Listing' : 'Host First Event'}</span>
-                </button>
+                {events.length > 0 ? (
+                  <button
+                    onClick={() => setCreateTeamEvent(events[0])}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 text-nerdLime" />
+                    <span>Post Team Listing</span>
+                  </button>
+                ) : currentUser ? (
+                  <button
+                    onClick={handleOpenCreateEvent}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 text-nerdLime" />
+                    <span>Host First Event</span>
+                  </button>
+                ) : null}
               </div>
 
               {allTeams.length === 0 ? (
@@ -460,12 +486,21 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   <p className="text-xs text-slate-400 mt-1 mb-5">
                     Post your hackathon pitch and find co-builders in AI, Systems, Hardware, or Design.
                   </p>
-                  <button
-                    onClick={() => (events.length > 0 ? setCreateTeamEvent(events[0]) : setCreateEventModalOpen(true))}
-                    className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
-                  >
-                    + Post Team Listing
-                  </button>
+                  {events.length > 0 ? (
+                    <button
+                      onClick={() => setCreateTeamEvent(events[0])}
+                      className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                    >
+                      + Post Team Listing
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => (currentUser ? handleOpenCreateEvent() : navigateToTab('events'))}
+                      className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                    >
+                      {currentUser ? '+ Host First Event' : 'Browse Events'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -523,19 +558,23 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     Hacks shipped during Nerds Room events. Upvote your favorite builds!
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (events.length > 0) {
-                      setSubmitProjectEvent(events[0]);
-                    } else {
-                      setCreateEventModalOpen(true);
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
-                >
-                  <Plus className="w-4 h-4 text-nerdLime" />
-                  <span>{events.length > 0 ? 'Submit Hack' : 'Host First Event'}</span>
-                </button>
+                {events.length > 0 ? (
+                  <button
+                    onClick={() => setSubmitProjectEvent(events[0])}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 text-nerdLime" />
+                    <span>Submit Hack</span>
+                  </button>
+                ) : currentUser ? (
+                  <button
+                    onClick={handleOpenCreateEvent}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 text-nerdLime" />
+                    <span>Host First Event</span>
+                  </button>
+                ) : null}
               </div>
 
               {allProjects.length === 0 ? (
@@ -545,12 +584,21 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   <p className="text-xs text-slate-400 mt-1 mb-5">
                     Submit your GitHub repository and live demo URL to get featured and collect community upvotes.
                   </p>
-                  <button
-                    onClick={() => (events.length > 0 ? setSubmitProjectEvent(events[0]) : setCreateEventModalOpen(true))}
-                    className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
-                  >
-                    + Submit Your Hack
-                  </button>
+                  {events.length > 0 ? (
+                    <button
+                      onClick={() => setSubmitProjectEvent(events[0])}
+                      className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                    >
+                      + Submit Your Hack
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => (currentUser ? handleOpenCreateEvent() : navigateToTab('events'))}
+                      className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+                    >
+                      {currentUser ? '+ Host First Event' : 'Browse Events'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -705,7 +753,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         />
       )}
 
-      {createEventModalOpen && (
+      {currentUser && createEventModalOpen && (
         <CreateEventModal
           onClose={() => setCreateEventModalOpen(false)}
           onEventCreated={(newEvent) => {
@@ -763,7 +811,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         />
       )}
 
-      {organizerModalOpen && (
+      {currentUser && organizerModalOpen && (
         <OrganizerCheckInModal
           onClose={() => setOrganizerModalOpen(false)}
           onCheckInSuccess={() => {

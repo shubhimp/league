@@ -32,8 +32,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
   );
   const [prizeAmount, setPrizeAmount] = useState('$5,000');
   const [tagsStr, setTagsStr] = useState('AI Agents, Rust, Hardware');
-  const [organizerName, setOrganizerName] = useState(currentUser?.name || 'Aditya Sharma');
-  const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Lead Organizer');
+  const [organizerName, setOrganizerName] = useState(currentUser?.name || '');
+  const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Community');
   const [coverUrl, setCoverUrl] = useState(PRESET_BANNERS[0].url);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -147,8 +147,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
         location: location.trim() || 'Online / Discord',
         startTime: startTimeIso,
         endTime: endTimeIso,
-        organizerName: organizerName.trim() || 'Aditya Sharma',
-        organizerOrg: organizerOrg.trim() || 'Nerds Room Lead Organizer',
+        organizerName: organizerName.trim() || currentUser?.name || 'Community Organizer',
+        organizerOrg: organizerOrg.trim() || 'Nerds Room Community',
         coverUrl: coverUrl.trim(),
         approvalStatus: visibility,
         tags,

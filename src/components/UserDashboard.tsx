@@ -192,7 +192,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             }`}
           >
             <Layers className="w-4 h-4 text-nerdLime" />
-            <span>My Hosted Events</span>
+            <span>Organizer Panel</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
               dashboardMode === 'hosting' ? 'bg-nerdLime text-nerdBlue' : 'bg-slate-100 text-slate-700'
             }`}>
@@ -202,7 +202,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         </div>
 
         <div className="hidden md:flex items-center text-xs text-slate-400 font-medium pr-2">
-          {dashboardMode === 'attending' ? 'Tracking your active hackathon progression' : 'Managing your hackathon rounds & attendees'}
+          {dashboardMode === 'attending' ? 'Tracking your active hackathon progression' : 'Organizer Panel: Manage hosted events, attendees & check-in desk'}
         </div>
       </div>
 

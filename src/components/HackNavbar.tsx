@@ -166,24 +166,27 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
           {/* Right Action Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             
-            {/* Host Event Button (Opens Event Creator) */}
-            <button
-              onClick={onOpenCreateEvent}
-              className="hidden sm:flex items-center gap-1.5 bg-nerdBlue text-white font-bold px-3 sm:px-4 py-1.5 rounded-full border border-transparent hover:bg-nerdLime hover:text-nerdBlue transition-all shadow-md text-xs tracking-wide whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Host Event</span>
-            </button>
+            {/* Host Event & Check-In Desk (Logged-in window only) */}
+            {currentUser && (
+              <>
+                <button
+                  onClick={onOpenCreateEvent}
+                  className="hidden sm:flex items-center gap-1.5 bg-nerdBlue text-white font-bold px-3 sm:px-4 py-1.5 rounded-full border border-transparent hover:bg-nerdLime hover:text-nerdBlue transition-all shadow-md text-xs tracking-wide whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Host Event</span>
+                </button>
 
-            {/* Check-in Desk */}
-            <button
-              onClick={onOpenCheckInDesk}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-full border border-slate-200 hover:border-nerdBlue text-slate-700 hover:text-nerdBlue text-xs font-bold transition-all bg-white/80"
-              title="Scanner Check-In Desk"
-            >
-              <Shield className="w-3.5 h-3.5 text-nerdBlue inline sm:mr-1" />
-              <span className="hidden md:inline">Desk</span>
-            </button>
+                <button
+                  onClick={onOpenCheckInDesk}
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-full border border-slate-200 hover:border-nerdBlue text-slate-700 hover:text-nerdBlue text-xs font-bold transition-all bg-white/80"
+                  title="Scanner Check-In Desk"
+                >
+                  <Shield className="w-3.5 h-3.5 text-nerdBlue inline sm:mr-1" />
+                  <span className="hidden md:inline">Desk</span>
+                </button>
+              </>
+            )}
 
             {/* Profile Menu */}
             <div className="relative">
@@ -230,6 +233,17 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
                   >
                     <LayoutDashboard className="w-4 h-4 text-nerdBlue" />
                     <span>Open My Dashboard</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('organizer-portal');
+                      setRoleDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left hover:bg-blue-50 text-nerdBlue font-bold transition-colors"
+                  >
+                    <Layers className="w-4 h-4 text-nerdBlue" />
+                    <span>Organizer Panel</span>
                   </button>
 
                   {/* Active Master Session Controls (Only when already authenticated) */}
@@ -319,12 +333,20 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
           </button>
 
           {currentUser && (
-            <button
-              onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-              className="w-full text-left p-2.5 rounded-xl bg-blue-50 text-nerdBlue flex items-center justify-between"
-            >
-              <span>MY DASHBOARD</span> <span className="text-nerdBlue">-&gt;</span>
-            </button>
+            <>
+              <button
+                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl bg-blue-50 text-nerdBlue flex items-center justify-between"
+              >
+                <span>MY DASHBOARD</span> <span className="text-nerdBlue">-&gt;</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('organizer-portal'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl bg-blue-50/60 text-nerdBlue flex items-center justify-between"
+              >
+                <span>ORGANIZER PANEL</span> <span className="text-nerdBlue">-&gt;</span>
+              </button>
+            </>
           )}
 
           {isMasterAdminActive && (
@@ -355,12 +377,21 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
             <span>MY PASSES ({myPassesCount})</span> <span className="text-nerdLime">-&gt;</span>
           </button>
           
-          <button
-            onClick={() => { onOpenCreateEvent(); setMobileMenuOpen(false); }}
-            className="w-full text-center py-3 rounded-xl bg-nerdBlue text-white hover:bg-nerdLime hover:text-nerdBlue font-black"
-          >
-            + HOST NEW EVENT
-          </button>
+          {currentUser ? (
+            <button
+              onClick={() => { onOpenCreateEvent(); setMobileMenuOpen(false); }}
+              className="w-full text-center py-3 rounded-xl bg-nerdBlue text-white hover:bg-nerdLime hover:text-nerdBlue font-black"
+            >
+              + HOST NEW EVENT
+            </button>
+          ) : (
+            <button
+              onClick={() => { onOpenAuth(); setMobileMenuOpen(false); }}
+              className="w-full text-center py-3 rounded-xl bg-nerdBlue text-white hover:bg-nerdLime hover:text-nerdBlue font-black"
+            >
+              SIGN IN / CREATE ACCOUNT
+            </button>
+          )}
         </div>
       )}
 
