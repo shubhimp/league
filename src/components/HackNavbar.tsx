@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Terminal, Users, Rocket, Ticket, Plus, LogOut, LogIn, Shield, 
   Crown, ChevronDown, Check, UserCheck, Layers, Sparkles, LayoutDashboard, Lock 
 } from 'lucide-react';
 import { hackApi } from '../services/hackApi';
-import { InfrastructureHealth, UserAccount, UserRole } from '../types';
+import { UserAccount, UserRole } from '../types';
 
 export type NavTab = 'events' | 'teams' | 'shipyard' | 'passes' | 'dashboard' | 'admin-panel' | 'student-dashboard' | 'organizer-portal';
 
 interface HackNavbarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  onOpenCloudStatus: () => void;
   onOpenAuth: () => void;
   onOpenCreateEvent: () => void;
   onOpenCheckInDesk: () => void;
@@ -25,7 +24,6 @@ interface HackNavbarProps {
 export const HackNavbar: React.FC<HackNavbarProps> = ({
   activeTab,
   setActiveTab,
-  onOpenCloudStatus,
   onOpenAuth,
   onOpenCreateEvent,
   onOpenCheckInDesk,
@@ -35,26 +33,8 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
   onSwitchUser,
   onLockMasterSession,
 }) => {
-  const [clusterHealth, setClusterHealth] = useState<InfrastructureHealth>({ 
-    status: 'checking', 
-    platform: 'Nerds Room Cloud' 
-  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    const check = async () => {
-      const health = await hackApi.checkClusterHealth();
-      if (mounted) setClusterHealth(health);
-    };
-    check();
-    const interval = setInterval(check, 30000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
 
   const isMasterAdminActive = hackApi.isMasterAdminAuthenticated();
   const isDashboardActive = activeTab === 'dashboard' || activeTab === 'student-dashboard' || activeTab === 'organizer-portal';
@@ -281,31 +261,10 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
                     </button>
-
-                    {/* Subtle Master Access for Core Team */}
-                    {!isMasterAdminActive && (
-                      <button
-                        onClick={() => {
-                          setActiveTab('admin-panel');
-                          setRoleDropdownOpen(false);
-                        }}
-                        className="w-full text-[10px] text-slate-400 hover:text-nerdBlue text-right pt-1 font-mono transition-colors"
-                        title="Core Team Gate"
-                      >
-                        🔐 Core Team Gate
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
             </div>
-
-            {/* Cloud Status Indicator */}
-            <button
-              onClick={onOpenCloudStatus}
-              className="w-2.5 h-2.5 rounded-full bg-nerdLime ring-2 ring-nerdBlue/30 hover:scale-125 transition-transform"
-              title="Supabase + Cloudinary + Vercel Cloud Status"
-            />
 
             {/* Mobile Hamburger */}
             <button

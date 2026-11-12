@@ -10,7 +10,6 @@ import { HackerPassModal } from './components/HackerPassModal';
 import { TeamBoardModal } from './components/TeamBoardModal';
 import { ProjectShipyardModal } from './components/ProjectShipyardModal';
 import { OrganizerCheckInModal } from './components/OrganizerCheckInModal';
-import { CloudStatusModal } from './components/CloudStatusModal';
 import { AuthModal } from './components/AuthModal';
 import { CreateEventModal } from './components/CreateEventModal';
 import { EditEventModal } from './components/EditEventModal';
@@ -23,7 +22,25 @@ interface HackHubPageProps {
 }
 
 export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
-  const [activeTab, setActiveTab] = useState<NavTab>('events');
+  // Check URL parameters & clean paths (/e/<slug>, /core-admin) for deep-links
+  const getUrlParams = () => {
+    if (typeof window === 'undefined') return { eventSlug: null, secretCode: null, tab: null };
+    const params = new URLSearchParams(window.location.search);
+    const normalizedPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
+    const pathMatch = window.location.pathname.match(/^\/e\/([^/]+)/);
+    const isCoreAdminPath = normalizedPath === '/core-admin' || normalizedPath === '/admin';
+    return {
+      eventSlug: params.get('event') || (pathMatch ? decodeURIComponent(pathMatch[1]) : null),
+      secretCode: params.get('secret') || params.get('access'),
+      tab: isCoreAdminPath ? ('admin-panel' as NavTab) : (params.get('tab') as NavTab | null),
+    };
+  };
+
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    const { tab } = getUrlParams();
+    if (!tab) return 'events';
+    return tab === 'student-dashboard' ? 'dashboard' : tab;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [events, setEvents] = useState<HackEvent[]>([]);
@@ -44,7 +61,6 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [createTeamEvent, setCreateTeamEvent] = useState<HackEvent | null>(null);
   const [submitProjectEvent, setSubmitProjectEvent] = useState<HackEvent | null>(null);
   const [organizerModalOpen, setOrganizerModalOpen] = useState(false);
-  const [cloudStatusOpen, setCloudStatusOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [createEventModalOpen, setCreateEventModalOpen] = useState(false);
 
@@ -52,18 +68,6 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [allTeams, setAllTeams] = useState<HackerTeam[]>([]);
   const [allProjects, setAllProjects] = useState<HackProject[]>([]);
   const [myPasses, setMyPasses] = useState<HackerRSVP[]>([]);
-
-  // Check URL parameters & /e/<slug> clean paths for deep-links
-  const getUrlParams = () => {
-    if (typeof window === 'undefined') return { eventSlug: null, secretCode: null, tab: null };
-    const params = new URLSearchParams(window.location.search);
-    const pathMatch = window.location.pathname.match(/^\/e\/([^/]+)/);
-    return {
-      eventSlug: params.get('event') || (pathMatch ? decodeURIComponent(pathMatch[1]) : null),
-      secretCode: params.get('secret') || params.get('access'),
-      tab: params.get('tab') as NavTab | null,
-    };
-  };
 
   const openEventView = (evt: HackEvent, pushUrl = true) => {
     setSelectedEvent(evt);
@@ -82,7 +86,12 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     setSelectedEvent(null);
     setActiveTab(tab);
     if (pushUrl && typeof window !== 'undefined') {
-      const targetUrl = tab === 'events' ? '/' : `/?tab=${encodeURIComponent(tab)}`;
+      const targetUrl =
+        tab === 'events'
+          ? '/'
+          : tab === 'admin-panel'
+          ? '/core-admin'
+          : `/?tab=${encodeURIComponent(tab)}`;
       if (window.location.pathname + window.location.search !== targetUrl) {
         window.history.pushState({ tab }, '', targetUrl);
       }
@@ -236,7 +245,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
         e.preventDefault();
+        setSelectedEvent(null);
         setActiveTab('admin-panel');
+        if (typeof window !== 'undefined' && window.location.pathname !== '/core-admin') {
+          window.history.pushState({ tab: 'admin-panel' }, '', '/core-admin');
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -347,7 +360,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-nerdLime selection:text-nerdDark flex flex-col">
         {/* Compact Members-Only Header */}
         <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-xl border-b border-slate-200 px-4 sm:px-6">
-          <div className="max-w-5xl mx-auto h-14 sm:h-16 flex items-center justify-between gap-3">
+          <div className="max-w-5xl mx-auto h-14 flex items-center justify-between gap-3">
             <a
               href="/"
               onClick={(e) => {
@@ -412,7 +425,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         )}
 
         {activeTab === 'admin-panel' ? (
-          <div className="flex-1 -mt-6">
+          <div className="flex-1 -mt-8">
             <MasterAdminDashboard
               onAdminUnlocked={(adminUser) => setCurrentUser(adminUser)}
               onInspectEvent={(evt) => openEventView(evt)}
@@ -427,9 +440,9 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
             />
           </div>
         ) : (
-          <main className="flex-1 w-full max-w-5xl mx-auto px-3.5 sm:px-6 py-6 sm:py-12 flex flex-col justify-center">
+          <main className="flex-1 w-full max-w-5xl mx-auto px-3.5 sm:px-6 py-4 sm:py-6 flex flex-col justify-center">
             {urlParams.eventSlug && (
-              <div className="mb-5 p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-nerdDark text-xs flex items-start gap-2.5 shadow-sm">
+              <div className="mb-4 p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-nerdDark text-xs flex items-start gap-2.5 shadow-sm">
                 <Lock className="w-4 h-4 text-nerdBlue shrink-0 mt-0.5" />
                 <div>
                   <span className="font-black">Event Invitation Ready:</span>{' '}
@@ -441,13 +454,13 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
               {/* Left Gate Intro */}
-              <div className="lg:col-span-6 space-y-4 text-center lg:text-left">
+              <div className="lg:col-span-6 space-y-3 text-center lg:text-left">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-extrabold text-nerdBlue shadow-sm">
                   <Lock className="w-3.5 h-3.5 text-emerald-600" />
                   <span>SIGN IN REQUIRED TO ACCESS PLATFORM</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-nerdDark leading-[1.1]">
+                <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black tracking-tight text-nerdDark leading-[1.1]">
                   Sign In to Enter{' '}
                   <span className="text-nerdBlue block sm:inline">Nerds Room League</span>
                 </h1>
@@ -456,18 +469,18 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                   Access to events, hackathons, passes, matchmaking teams, project shipyard, and the organizer portal is restricted to signed-in Nerds Room accounts.
                 </p>
 
-                <div className="hidden sm:grid grid-cols-3 gap-2.5 pt-2 max-w-lg mx-auto lg:mx-0 text-left">
-                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="hidden sm:grid grid-cols-3 gap-2.5 pt-1 max-w-lg mx-auto lg:mx-0 text-left">
+                  <div className="p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                     <Ticket className="w-4 h-4 text-nerdBlue mb-1" />
                     <div className="font-bold text-xs text-slate-900">QR Tickets</div>
                     <div className="text-[11px] text-slate-500">Verified event passes</div>
                   </div>
-                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                  <div className="p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                     <Layers className="w-4 h-4 text-nerdBlue mb-1" />
                     <div className="font-bold text-xs text-slate-900">Organizer Panel</div>
                     <div className="text-[11px] text-slate-500">Host &amp; edit rounds</div>
                   </div>
-                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                  <div className="p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                     <Rocket className="w-4 h-4 text-nerdBlue mb-1" />
                     <div className="font-bold text-xs text-slate-900">Shipyard</div>
                     <div className="text-[11px] text-slate-500">Teams &amp; submissions</div>
@@ -483,20 +496,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           </main>
         )}
 
-        <footer className="border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 font-sans">
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mb-1 font-bold">
+        <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500 font-sans">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-bold">
             <span className="text-nerdDark font-black">nerds room<span className="text-nerdLime">.</span></span>
             <span>•</span>
             <span className="text-nerdBlue">league.nerdsroom.org</span>
-          </div>
-          <div className="mt-2.5 flex items-center justify-center">
-            <button
-              onClick={() => setActiveTab('admin-panel')}
-              className="text-[10px] text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1 font-mono"
-              title="Core Team Console Gate (Restricted)"
-            >
-              <span>🔐 Core Team Gate</span>
-            </button>
           </div>
         </footer>
       </div>
@@ -510,7 +514,6 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       <HackNavbar
         activeTab={activeTab}
         setActiveTab={(tab) => navigateToTab(tab)}
-        onOpenCloudStatus={() => setCloudStatusOpen(true)}
         onOpenAuth={() => setAuthModalOpen(true)}
         onOpenCreateEvent={handleOpenCreateEvent}
         onOpenCheckInDesk={handleOpenCheckInDesk}
@@ -961,15 +964,6 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         <p className="text-[11px] text-slate-400">
           Open-Source Multi-Round Event Platform for Hackathons, Ideathons & Community Sprints.
         </p>
-        <div className="mt-3 flex items-center justify-center">
-          <button
-            onClick={() => navigateToTab('admin-panel')}
-            className="text-[10px] text-slate-300 hover:text-slate-600 transition-colors flex items-center gap-1 font-mono"
-            title="Core Team Console Gate (Restricted)"
-          >
-            <span>🔐 Core Team Gate</span>
-          </button>
-        </div>
       </footer>
 
       {/* Active Modals */}
@@ -1060,15 +1054,6 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           onClose={() => setOrganizerModalOpen(false)}
           onCheckInSuccess={() => {
             setMyPasses(hackApi.getMyPasses());
-          }}
-        />
-      )}
-
-      {cloudStatusOpen && (
-        <CloudStatusModal
-          onClose={() => setCloudStatusOpen(false)}
-          onRefreshData={() => {
-            fetchAllData();
           }}
         />
       )}

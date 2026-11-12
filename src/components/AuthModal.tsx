@@ -82,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
       }`}
     >
       {/* Header with Nerds Room Gradient */}
-      <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-5 sm:px-6 py-4 text-white flex items-center justify-between gap-3">
+      <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-5 py-3.5 text-white flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 font-black text-lg tracking-tight">
             <span>nerds room</span>
@@ -106,14 +106,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
       </div>
 
       {/* Body */}
-      <div className="p-4 sm:p-6 space-y-4 text-xs font-sans flex-1 overflow-y-auto">
+      <div className="p-4 sm:p-5 space-y-3 text-xs font-sans flex-1 overflow-y-auto">
         {/* Primary: Google OAuth */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <button
             type="button"
             disabled={submitting}
             onClick={handleGoogleSignIn}
-            className="w-full py-3 px-4 rounded-xl bg-white border-2 border-nerdBlue/25 hover:border-nerdBlue hover:bg-blue-50/40 text-slate-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+            className="w-full py-2.5 px-4 rounded-xl bg-white border-2 border-nerdBlue/25 hover:border-nerdBlue hover:bg-blue-50/40 text-slate-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -144,7 +144,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
         </div>
 
         {/* Divider to Secondary Email Auth */}
-        <div className="relative flex items-center justify-center py-2">
+        <div className="relative flex items-center justify-center py-1.5">
           <div className="border-t border-slate-200 w-full" />
           <span className="bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute whitespace-nowrap">
             Or with Outlook / Other Email
@@ -160,7 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
               setErrorMsg('');
               setInfoMsg('');
             }}
-            className={`py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
               mode === 'signin'
                 ? 'bg-white text-nerdBlue shadow-sm'
                 : 'text-slate-500 hover:text-slate-800'
@@ -175,7 +175,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
               setErrorMsg('');
               setInfoMsg('');
             }}
-            className={`py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
               mode === 'signup'
                 ? 'bg-white text-nerdBlue shadow-sm'
                 : 'text-slate-500 hover:text-slate-800'
@@ -186,7 +186,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
         </div>
 
         {/* Secondary Email Form */}
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-2.5">
           {mode === 'signup' && (
             <div>
               <label className="block text-slate-700 font-bold mb-1">Your Full Name</label>
@@ -198,7 +198,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Aditya Sharma"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
                 />
               </div>
             </div>
@@ -214,7 +214,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@outlook.com"
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
+                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
               />
             </div>
           </div>
@@ -229,7 +229,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
+                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
               />
             </div>
           </div>

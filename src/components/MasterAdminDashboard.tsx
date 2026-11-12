@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { HackEvent, EventApprovalStatus, UserRole, HackerRSVP, UserAccount } from '../types';
+import { HackEvent, EventApprovalStatus, UserRole, HackerRSVP, UserAccount, InfrastructureHealth } from '../types';
 import { hackApi } from '../services/hackApi';
 import { EditEventModal } from './EditEventModal';
+import { CloudStatusModal } from './CloudStatusModal';
 import { 
   ShieldAlert, CheckCircle2, Lock, XCircle, Star, ExternalLink, 
   Search, Users, Layers, Award, Sparkles, KeyRound, Download, 
-  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck, Copy, Trash2, Edit3, Globe
+  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck, Copy, Trash2, Edit3, Globe, Cloud, Database, RefreshCw
 } from 'lucide-react';
 
 interface MasterAdminDashboardProps {
@@ -44,6 +45,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'events' | 'attendees' | 'roles' | 'security'>('events');
   const [editingEvent, setEditingEvent] = useState<HackEvent | null>(null);
+  const [cloudHealth, setCloudHealth] = useState<InfrastructureHealth | null>(null);
+  const [cloudStatusOpen, setCloudStatusOpen] = useState(false);
+
+  const loadCloudHealth = async () => {
+    const health = await hackApi.checkClusterHealth();
+    setCloudHealth(health);
+  };
 
   const loadAllData = async () => {
     setLoading(true);
@@ -59,9 +67,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadAllData();
-    }
+    if (!isAuthenticated) return;
+    loadAllData();
+    loadCloudHealth();
+    const interval = setInterval(() => {
+      loadCloudHealth();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   const handleUnlock = async (e: React.FormEvent) => {
@@ -88,6 +100,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const handleLock = () => {
     hackApi.setMasterAdminAuthenticated(false);
     setIsAuthenticated(false);
+    setCloudStatusOpen(false);
+    setCloudHealth(null);
     setAdminIdInput('');
     setMasterKeyInput('');
     if (onLockSession) onLockSession();
@@ -316,6 +330,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 relative z-10 w-full md:w-auto">
           <button
+            type="button"
+            onClick={() => setCloudStatusOpen(true)}
+            className="flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all"
+            title="Private Core Team Diagnostics: Supabase + Cloudinary + Vercel Cloud Status"
+          >
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                !cloudHealth || cloudHealth.status === 'checking'
+                  ? 'bg-slate-300 animate-pulse'
+                  : cloudHealth.schemaReady && cloudHealth.cloudinaryConfigured
+                  ? 'bg-nerdLime ring-2 ring-nerdLime/40 animate-pulse'
+                  : 'bg-amber-400 ring-2 ring-amber-400/40 animate-pulse'
+              }`}
+            />
+            <span>Cloud Status</span>
+          </button>
+
+          <button
             onClick={onBrowseLiveSite}
             className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all"
           >
@@ -409,7 +441,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>Security Gate</span>
+          <span>Security &amp; Cloud</span>
         </button>
       </div>
 
@@ -857,40 +889,105 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 4: SERVER SECURITY GATE CONFIGURATION */}
+      {/* TAB 4: SERVER SECURITY GATE CONFIGURATION & PRIVATE CLOUD DIAGNOSTICS */}
       {/* ===================================================================== */}
       {activeTab === 'security' && (
-        <div className="bg-white border-2 border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm max-w-xl space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-base font-black text-slate-900">Server-Verified Master Gate</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Your Master Admin ID &amp; Passcode are protected exclusively inside server environment variables (never exposed in browser JS).
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="bg-white border-2 border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Server-Verified Master Gate</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Your Master Admin ID &amp; Passcode are protected exclusively inside server environment variables (never exposed in browser JS).
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase shrink-0">
+                ● Protected
+              </span>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-slate-700">
+              <div className="font-bold text-slate-900">How to rotate Master Admin credentials:</div>
+              <p className="leading-relaxed">
+                Update <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_ID</code> and{' '}
+                <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_PASS</code> inside{' '}
+                <strong>Vercel Dashboard → Project Settings → Environment Variables</strong> (and <code className="font-mono">.env.local</code> for local testing).
               </p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase shrink-0">
-              ● Protected
-            </span>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleLock}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Lock Master Session Immediately</span>
+              </button>
+            </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-slate-700">
-            <div className="font-bold text-slate-900">How to rotate Master Admin credentials:</div>
-            <p className="leading-relaxed">
-              Update <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_ID</code> and{' '}
-              <code className="bg-white px-1.5 py-0.5 rounded border font-mono text-nerdBlue">MASTER_ADMIN_PASS</code> inside{' '}
-              <strong>Vercel Dashboard → Project Settings → Environment Variables</strong> (and <code className="font-mono">.env.local</code> for local testing).
-            </p>
-          </div>
+          <div className="bg-white border-2 border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                      !cloudHealth || cloudHealth.status === 'checking'
+                        ? 'bg-slate-300 animate-pulse'
+                        : cloudHealth.schemaReady && cloudHealth.cloudinaryConfigured
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-amber-400 animate-pulse'
+                    }`}
+                  />
+                  <span>Supabase &amp; Cloudinary Status</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Private Core Team infrastructure telemetry (hidden from public view and regular user dashboards).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadCloudHealth}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all shrink-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
 
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={handleLock}
-              className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Lock Master Session Immediately</span>
-            </button>
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3.5 rounded-2xl border bg-slate-50 border-slate-200 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-bold text-slate-800">
+                  <Database className="w-4 h-4 text-nerdBlue" />
+                  <span>Supabase PostgreSQL &amp; Auth</span>
+                </span>
+                <span className={`font-black text-[11px] ${cloudHealth?.schemaReady ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {!cloudHealth ? 'CHECKING...' : cloudHealth.schemaReady ? `● LIVE (${cloudHealth.latencyMs}ms)` : '● SCHEMA PENDING'}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl border bg-slate-50 border-slate-200 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-bold text-slate-800">
+                  <Cloud className="w-4 h-4 text-nerdBlue" />
+                  <span>Cloudinary Media CDN</span>
+                </span>
+                <span className={`font-black text-[11px] ${cloudHealth?.cloudinaryConfigured ? 'text-emerald-700' : 'text-blue-700'}`}>
+                  {!cloudHealth ? 'CHECKING...' : cloudHealth.cloudinaryConfigured ? '● SIGNED UPLOADS LIVE' : '● CONNECTED'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setCloudStatusOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-2"
+              >
+                <Cloud className="w-4 h-4 text-nerdLime" />
+                <span>Open Full Cloud Diagnostics</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -908,6 +1005,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             setEditingEvent(null);
             onDataMutated?.();
             onEventUpdated?.(updated);
+          }}
+        />
+      )}
+
+      {cloudStatusOpen && (
+        <CloudStatusModal
+          onClose={() => setCloudStatusOpen(false)}
+          onRefreshData={() => {
+            loadCloudHealth();
+            loadAllData();
+            onDataMutated?.();
           }}
         />
       )}
