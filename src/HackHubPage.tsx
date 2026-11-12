@@ -11,9 +11,11 @@ import { TeamBoardModal } from './components/TeamBoardModal';
 import { ProjectShipyardModal } from './components/ProjectShipyardModal';
 import { OrganizerCheckInModal } from './components/OrganizerCheckInModal';
 import { AuthModal } from './components/AuthModal';
+import { EmailConfirmGate } from './components/EmailConfirmGate';
 import { CreateEventModal } from './components/CreateEventModal';
 import { EditEventModal } from './components/EditEventModal';
 import { hackApi, supabase } from './services/hackApi';
+import type { EmailOtpType } from '@supabase/supabase-js';
 import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount } from './types';
 import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck, AlertCircle, X, Lock, ArrowLeft } from 'lucide-react';
 
@@ -22,19 +24,33 @@ interface HackHubPageProps {
 }
 
 export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
-  // Check URL parameters & clean paths (/e/<slug>, /core-admin) for deep-links
+  // Check URL parameters & clean paths (/e/<slug>, /core-admin, /auth/confirm) for deep-links
   const getUrlParams = () => {
-    if (typeof window === 'undefined') return { eventSlug: null, secretCode: null, tab: null };
+    if (typeof window === 'undefined') {
+      return { eventSlug: null, secretCode: null, tab: null, confirmTokenHash: null, confirmType: null };
+    }
     const params = new URLSearchParams(window.location.search);
     const normalizedPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
     const pathMatch = window.location.pathname.match(/^\/e\/([^/]+)/);
     const isCoreAdminPath = normalizedPath === '/core-admin' || normalizedPath === '/admin';
+    const tokenHash = params.get('token_hash');
+    const otpType = (params.get('type') as EmailOtpType | null) || (normalizedPath === '/auth/confirm' ? 'signup' : null);
     return {
       eventSlug: params.get('event') || (pathMatch ? decodeURIComponent(pathMatch[1]) : null),
       secretCode: params.get('secret') || params.get('access'),
       tab: isCoreAdminPath ? ('admin-panel' as NavTab) : (params.get('tab') as NavTab | null),
+      confirmTokenHash: tokenHash,
+      confirmType: otpType,
     };
   };
+
+  const [confirmParams, setConfirmParams] = useState<{ tokenHash: string; type: EmailOtpType } | null>(() => {
+    const { confirmTokenHash, confirmType } = getUrlParams();
+    if (confirmTokenHash && confirmType) {
+      return { tokenHash: confirmTokenHash, type: confirmType };
+    }
+    return null;
+  });
 
   const [activeTab, setActiveTab] = useState<NavTab>(() => {
     const { tab } = getUrlParams();
@@ -353,6 +369,31 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   );
 
   const urlParams = getUrlParams();
+
+  if (confirmParams) {
+    return (
+      <EmailConfirmGate
+        tokenHash={confirmParams.tokenHash}
+        otpType={confirmParams.type}
+        onVerified={(user) => {
+          setConfirmParams(null);
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', '/');
+          }
+          if (user) {
+            setCurrentUser(user);
+          }
+          fetchAllData();
+        }}
+        onBackToSignIn={() => {
+          setConfirmParams(null);
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', '/');
+          }
+        }}
+      />
+    );
+  }
 
   // Signed-Out Members-Only Lock Gate
   if (!currentUser) {

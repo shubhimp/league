@@ -9,6 +9,7 @@ import {
   InfrastructureHealth,
 } from '../types';
 import { createClient } from '@supabase/supabase-js';
+import type { EmailOtpType } from '@supabase/supabase-js';
 
 // Shubhi's Active Supabase Instance + Cloudinary CDN
 export const SUPABASE_URL =
@@ -158,12 +159,15 @@ function mapRowToProject(row: any): HackProject {
   };
 }
 
-function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'google'): string {
+function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'google' | 'verify'): string {
   const msg = rawMessage || '';
   const lower = msg.toLowerCase();
 
   if (context === 'google' && (lower.includes('provider is not enabled') || lower.includes('unsupported provider'))) {
     return 'Google Sign-In is not enabled in Supabase Auth yet. Enable Google under Authentication → Providers in Supabase Dashboard, or sign in with Email and Password.';
+  }
+  if (context === 'verify' && (lower.includes('expired') || lower.includes('invalid') || lower.includes('otp'))) {
+    return 'This verification link is invalid, expired, or has already been used. Please sign in or request a new link.';
   }
   if (lower.includes('email rate limit exceeded') || lower.includes('over_email_send_rate_limit') || lower.includes('rate limit')) {
     return 'Email confirmation limit reached. Please wait a minute and try again, or sign in with Google.';
@@ -319,15 +323,83 @@ class HackApiService {
     return { user };
   }
 
+  public async verifyEmailTokenHash(
+    tokenHash: string,
+    type: EmailOtpType
+  ): Promise<{ user?: UserAccount | null; type?: EmailOtpType; error?: string }> {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type,
+      });
+
+      if (error) {
+        return { error: formatAuthError(error.message, 'verify') };
+      }
+
+      const user = data.user
+        ? await this.resolveUserFromAuthUser(data.user, 'student')
+        : await this.syncSupabaseSession();
+      if (user) {
+        this.setCurrentUser(user);
+      }
+      return { user, type };
+    } catch (err: any) {
+      return { error: formatAuthError(err?.message || 'Unable to verify confirmation link.', 'verify') };
+    }
+  }
+
+  public async updateRecoveredPassword(
+    newPassword: string
+  ): Promise<{ user?: UserAccount | null; error?: string }> {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) {
+        return { error: formatAuthError(error.message, 'verify') };
+      }
+      const user = data.user
+        ? await this.resolveUserFromAuthUser(data.user, 'student')
+        : await this.syncSupabaseSession();
+      if (user) {
+        this.setCurrentUser(user);
+      }
+      return { user };
+    } catch (err: any) {
+      return { error: err?.message || 'Unable to update password.' };
+    }
+  }
+
   public async signInWithGoogle(preferredRole: 'student' | 'organizer' = 'student'): Promise<{ error?: string }> {
     try {
+      let currentRelPath = '/';
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.PENDING_OAUTH_ROLE, preferredRole);
-        const currentRelPath = window.location.pathname + window.location.search;
-        if (currentRelPath && currentRelPath !== '/') {
-          sessionStorage.setItem('nerds_pending_redirect', currentRelPath);
+        const rel = window.location.pathname + window.location.search;
+        if (rel && rel !== '/' && !rel.startsWith('/auth/confirm')) {
+          currentRelPath = rel;
+          sessionStorage.setItem('nerds_pending_redirect', rel);
         }
       }
+
+      // Prefer custom domain OAuth gateway (/api/google-auth) when configured on Vercel
+      // so Google displays "Continue to league.nerdsroom.org / League by Nerds Room" instead of *.supabase.co
+      if (typeof window !== 'undefined') {
+        try {
+          const probe = await fetch('/api/google-auth?check=1');
+          if (probe.ok) {
+            const probeJson = await probe.json();
+            if (probeJson?.enabled) {
+              window.location.href = `/api/google-auth?start=1&next=${encodeURIComponent(currentRelPath)}`;
+              return {};
+            }
+          }
+        } catch {
+          // Fallback to standard Supabase OAuth if local dev server does not run Vercel API functions
+        }
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
