@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, User, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, User, Lock, Mail, ArrowRight, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { hackApi } from '../services/hackApi';
 import { UserAccount } from '../types';
 
@@ -15,8 +15,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
+  const [alreadyExistsPrompt, setAlreadyExistsPrompt] = useState(false);
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const switchMode = (nextMode: 'signin' | 'signup') => {
+    setMode(nextMode);
+    setErrorMsg('');
+    setInfoMsg('');
+    setAlreadyExistsPrompt(false);
+    setPendingConfirmEmail('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +44,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
     setSubmitting(true);
     setErrorMsg('');
     setInfoMsg('');
+    setAlreadyExistsPrompt(false);
 
     if (mode === 'signup') {
       if (password.length < 6) {
@@ -38,12 +59,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
       });
       setSubmitting(false);
 
+      if (res.alreadyExists) {
+        setPendingConfirmEmail('');
+        setAlreadyExistsPrompt(true);
+        setErrorMsg(
+          res.error ||
+            'An account with this email already exists. Please use Sign In with Email or Continue with Google.'
+        );
+        return;
+      }
       if (res.error) {
         setErrorMsg(res.error);
         return;
       }
       if (res.requiresConfirmation) {
-        setInfoMsg('Account created! Check your inbox for a confirmation link, then sign in.');
+        const cleanEmail = email.trim().toLowerCase();
+        setPendingConfirmEmail(cleanEmail);
+        setResendCooldown(60);
+        setInfoMsg(`Verification email sent to ${cleanEmail}! Check your inbox (or spam folder), then click the link to sign in.`);
         return;
       }
       if (res.user) {
@@ -56,6 +89,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
 
       if (res.error) {
         setErrorMsg(res.error);
+        if (res.emailNotConfirmed) {
+          setPendingConfirmEmail(email.trim().toLowerCase());
+          setResendCooldown(0);
+        }
         return;
       }
       if (res.user) {
@@ -65,8 +102,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
     }
   };
 
+  const handleResendConfirmation = async () => {
+    const targetEmail = pendingConfirmEmail || email.trim().toLowerCase();
+    if (!targetEmail || resending || resendCooldown > 0) return;
+
+    setResending(true);
+    setErrorMsg('');
+    const res = await hackApi.resendSignupConfirmation(targetEmail);
+    setResending(false);
+
+    if (res.error) {
+      setErrorMsg(res.error);
+      return;
+    }
+
+    setResendCooldown(60);
+    setInfoMsg(`Verification email sent again to ${targetEmail}. Check your inbox or spam folder.`);
+  };
+
+  const handleForgotPassword = async () => {
+    const targetEmail = email.trim().toLowerCase();
+    setErrorMsg('');
+    setInfoMsg('');
+    setAlreadyExistsPrompt(false);
+
+    if (!targetEmail) {
+      setErrorMsg('Enter your email address above first, then click Forgot password.');
+      return;
+    }
+
+    setSubmitting(true);
+    const res = await hackApi.sendPasswordReset(targetEmail);
+    setSubmitting(false);
+
+    if (res.error) {
+      setErrorMsg(res.error);
+      return;
+    }
+
+    setPendingConfirmEmail('');
+    setInfoMsg(`Password reset email sent to ${targetEmail}. Open the link in your inbox to set a new password.`);
+  };
+
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
+    setInfoMsg('');
+    setAlreadyExistsPrompt(false);
     setSubmitting(true);
     const res = await hackApi.signInWithGoogle();
     if (res.error) {
@@ -155,11 +236,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
         <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
           <button
             type="button"
-            onClick={() => {
-              setMode('signin');
-              setErrorMsg('');
-              setInfoMsg('');
-            }}
+            onClick={() => switchMode('signin')}
             className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
               mode === 'signin'
                 ? 'bg-white text-nerdBlue shadow-sm'
@@ -170,11 +247,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
           </button>
           <button
             type="button"
-            onClick={() => {
-              setMode('signup');
-              setErrorMsg('');
-              setInfoMsg('');
-            }}
+            onClick={() => switchMode('signup')}
             className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
               mode === 'signup'
                 ? 'bg-white text-nerdBlue shadow-sm'
@@ -212,7 +285,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  setEmail(nextVal);
+                  if (alreadyExistsPrompt) {
+                    setAlreadyExistsPrompt(false);
+                    setErrorMsg('');
+                  }
+                  if (pendingConfirmEmail && nextVal.trim().toLowerCase() !== pendingConfirmEmail) {
+                    setPendingConfirmEmail('');
+                    setInfoMsg('');
+                  }
+                }}
                 placeholder="you@outlook.com"
                 className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl pl-9 pr-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none transition-all"
               />
@@ -220,7 +304,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
           </div>
 
           <div>
-            <label className="block text-slate-700 font-bold mb-1">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-slate-700 font-bold">Password</label>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handleForgotPassword}
+                  className="text-[11px] font-bold text-nerdBlue hover:underline disabled:opacity-50"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -235,9 +331,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
+            <div
+              className={`p-3 rounded-xl border text-[11px] font-bold space-y-2 ${
+                alreadyExistsPrompt
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+              {alreadyExistsPrompt && (
+                <button
+                  type="button"
+                  onClick={() => switchMode('signin')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-nerdBlue font-extrabold hover:bg-amber-100/50 transition-colors"
+                >
+                  <span>Switch to Sign In with Email</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </div>
           )}
 
@@ -245,6 +359,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, inline
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{infoMsg}</span>
+            </div>
+          )}
+
+          {pendingConfirmEmail && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px]">
+              <span className="text-slate-600 font-medium truncate">
+                Didn&apos;t get the email?
+              </span>
+              <button
+                type="button"
+                disabled={resending || resendCooldown > 0}
+                onClick={handleResendConfirmation}
+                className="inline-flex items-center gap-1 font-extrabold text-nerdBlue hover:underline disabled:text-slate-400 disabled:no-underline shrink-0"
+              >
+                <RefreshCw className={`w-3 h-3 ${resending ? 'animate-spin' : ''}`} />
+                <span>
+                  {resending
+                    ? 'Sending...'
+                    : resendCooldown > 0
+                    ? `Resend in ${resendCooldown}s`
+                    : 'Resend Email'}
+                </span>
+              </button>
             </div>
           )}
 

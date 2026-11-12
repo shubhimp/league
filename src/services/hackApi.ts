@@ -159,7 +159,10 @@ function mapRowToProject(row: any): HackProject {
   };
 }
 
-function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'google' | 'verify'): string {
+function formatAuthError(
+  rawMessage: string,
+  context: 'signup' | 'signin' | 'google' | 'verify' | 'resend' | 'reset'
+): string {
   const msg = rawMessage || '';
   const lower = msg.toLowerCase();
 
@@ -169,14 +172,20 @@ function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'goo
   if (context === 'verify' && (lower.includes('expired') || lower.includes('invalid') || lower.includes('otp'))) {
     return 'This verification link is invalid, expired, or has already been used. Please sign in or request a new link.';
   }
+  if (lower.includes('for security purposes, you can only request this after')) {
+    return 'Please wait up to 60 seconds before requesting another email for this address.';
+  }
   if (lower.includes('email rate limit exceeded') || lower.includes('over_email_send_rate_limit') || lower.includes('rate limit')) {
-    return 'Email confirmation limit reached. Please wait a minute and try again, or sign in with Google.';
+    return 'Email sending limit reached. Please wait a minute and try again, or sign in with Google.';
   }
   if (lower.includes('email not confirmed')) {
-    return 'Your email address is not confirmed yet. Check your inbox for the verification link to activate your account.';
+    return 'Your email address is not confirmed yet. Check your inbox or click Resend confirmation email below.';
+  }
+  if (lower.includes('user already registered') || lower.includes('already been registered')) {
+    return 'An account with this email already exists. Please use Sign In with Email or Continue with Google.';
   }
   if (lower.includes('invalid login credentials')) {
-    return 'Incorrect email or password. Double-check your credentials or create a new account.';
+    return 'Incorrect email or password. Double-check your credentials, reset your password, or use Continue with Google.';
   }
   return msg;
 }
@@ -250,7 +259,12 @@ class HackApiService {
     email: string;
     password: string;
     role?: 'student' | 'organizer';
-  }): Promise<{ user?: UserAccount; requiresConfirmation?: boolean; error?: string }> {
+  }): Promise<{
+    user?: UserAccount;
+    requiresConfirmation?: boolean;
+    alreadyExists?: boolean;
+    error?: string;
+  }> {
     const emailClean = params.email.trim().toLowerCase();
     const assignedRole = params.role || 'student';
     const signupDate =
@@ -280,6 +294,17 @@ class HackApiService {
       return { error: formatAuthError(error.message, 'signup') };
     }
 
+    // With Email Confirmations enabled, Supabase returns an obfuscated user with empty identities
+    // when an email is already registered (via Email/Password or Google) and skips sending another mail.
+    const identities = data.user?.identities;
+    if (Array.isArray(identities) && identities.length === 0) {
+      return {
+        alreadyExists: true,
+        error:
+          'An account with this email already exists. Please use Sign In with Email or Continue with Google.',
+      };
+    }
+
     const userId = data.user?.id || 'usr_' + Date.now();
     const profile: UserAccount = {
       id: userId,
@@ -307,7 +332,7 @@ class HackApiService {
     email: string,
     password: string,
     fallbackRole: 'student' | 'organizer' = 'student'
-  ): Promise<{ user?: UserAccount; error?: string }> {
+  ): Promise<{ user?: UserAccount; emailNotConfirmed?: boolean; error?: string }> {
     const emailClean = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: emailClean,
@@ -315,12 +340,52 @@ class HackApiService {
     });
 
     if (error) {
-      return { error: formatAuthError(error.message, 'signin') };
+      const msgLower = (error.message || '').toLowerCase();
+      const emailNotConfirmed =
+        (error as any)?.code === 'email_not_confirmed' || msgLower.includes('email not confirmed');
+      return {
+        emailNotConfirmed,
+        error: formatAuthError(error.message, 'signin'),
+      };
     }
 
     const user = await this.resolveUserFromAuthUser(data.user, fallbackRole);
     this.setCurrentUser(user);
     return { user };
+  }
+
+  public async resendSignupConfirmation(email: string): Promise<{ error?: string }> {
+    try {
+      const emailClean = email.trim().toLowerCase();
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: emailClean,
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) {
+        return { error: formatAuthError(error.message, 'resend') };
+      }
+      return {};
+    } catch (err: any) {
+      return { error: err?.message || 'Unable to resend confirmation email.' };
+    }
+  }
+
+  public async sendPasswordReset(email: string): Promise<{ error?: string }> {
+    try {
+      const emailClean = email.trim().toLowerCase();
+      const { error } = await supabase.auth.resetPasswordForEmail(emailClean, {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      });
+      if (error) {
+        return { error: formatAuthError(error.message, 'reset') };
+      }
+      return {};
+    } catch (err: any) {
+      return { error: err?.message || 'Unable to send password reset email.' };
+    }
   }
 
   public async verifyEmailTokenHash(
