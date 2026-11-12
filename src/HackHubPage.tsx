@@ -13,9 +13,10 @@ import { OrganizerCheckInModal } from './components/OrganizerCheckInModal';
 import { CloudStatusModal } from './components/CloudStatusModal';
 import { AuthModal } from './components/AuthModal';
 import { CreateEventModal } from './components/CreateEventModal';
-import { hackApi, supabase, DEMO_USERS } from './services/hackApi';
+import { EditEventModal } from './components/EditEventModal';
+import { hackApi, supabase } from './services/hackApi';
 import { HackEvent, HackerRSVP, HackerTeam, HackProject, UserAccount } from './types';
-import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck, AlertCircle, X, LogIn } from 'lucide-react';
+import { Terminal, Users, Rocket, Ticket, Plus, Layers, Heart, Sparkles, ExternalLink, ShieldCheck, AlertCircle, X, Lock, ArrowLeft } from 'lucide-react';
 
 interface HackHubPageProps {
   onBackToMain?: () => void;
@@ -29,12 +30,14 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const [loading, setLoading] = useState(true);
   const [authBannerError, setAuthBannerError] = useState('');
   const [eventDetailsRefreshKey, setEventDetailsRefreshKey] = useState(0);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
 
   // User auth state
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(hackApi.getCurrentUser());
 
   // Modals state
   const [selectedEvent, setSelectedEvent] = useState<HackEvent | null>(null);
+  const [editingEvent, setEditingEvent] = useState<HackEvent | null>(null);
   const [rsvpModalEvent, setRsvpModalEvent] = useState<HackEvent | null>(null);
   const [viewingPass, setViewingPass] = useState<HackerRSVP | null>(null);
   const [viewingPassEventTitle, setViewingPassEventTitle] = useState<string>('');
@@ -86,6 +89,22 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     }
   };
 
+  const clearPlatformState = () => {
+    setEvents([]);
+    setAllTeams([]);
+    setAllProjects([]);
+    setMyPasses([]);
+    setSelectedEvent(null);
+    setEditingEvent(null);
+    setRsvpModalEvent(null);
+    setViewingPass(null);
+    setCreateTeamEvent(null);
+    setSubmitProjectEvent(null);
+    setCreateEventModalOpen(false);
+    setOrganizerModalOpen(false);
+    setAuthModalOpen(false);
+  };
+
   // Sync Google OAuth / Email Auth session cleanly on mount & auth state changes
   useEffect(() => {
     // Capture OAuth redirect error parameters if present and clean URL
@@ -104,8 +123,20 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       }
     }
 
+    const restorePendingRedirect = () => {
+      if (typeof window === 'undefined') return;
+      const pendingRedirect = sessionStorage.getItem('nerds_pending_redirect');
+      if (pendingRedirect && window.location.pathname === '/') {
+        sessionStorage.removeItem('nerds_pending_redirect');
+        window.history.replaceState({}, '', pendingRedirect);
+      } else {
+        sessionStorage.removeItem('nerds_pending_redirect');
+      }
+    };
+
     hackApi.syncSupabaseSession().then(async (syncedUser) => {
       if (syncedUser) {
+        restorePendingRedirect();
         setCurrentUser(syncedUser);
         const syncedPasses = await hackApi.syncMyPasses();
         setMyPasses(syncedPasses);
@@ -116,15 +147,14 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       if (eventName === 'SIGNED_IN' || eventName === 'TOKEN_REFRESHED') {
         const synced = await hackApi.syncSupabaseSession();
         if (synced) {
+          restorePendingRedirect();
           setCurrentUser(synced);
           const syncedPasses = await hackApi.syncMyPasses();
           setMyPasses(syncedPasses);
         }
       } else if (eventName === 'SIGNED_OUT') {
         setCurrentUser(null);
-        setMyPasses([]);
-        setCreateEventModalOpen(false);
-        setOrganizerModalOpen(false);
+        clearPlatformState();
       }
     });
 
@@ -134,25 +164,25 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   }, []);
 
   const fetchAllData = async () => {
+    if (!hackApi.getCurrentUser()) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const { secretCode, eventSlug, tab } = getUrlParams();
     
     // Fetch live public events (unlocked by secret link if provided) and global boards in parallel
-    const [evts, t, p] = await Promise.all([
+    const [evts, t, p, syncedPasses] = await Promise.all([
       hackApi.getPublicEvents(selectedType, secretCode || undefined),
       hackApi.getTeams(),
       hackApi.getProjects(),
+      hackApi.syncMyPasses(),
     ]);
     setEvents(evts);
     setAllTeams(t);
     setAllProjects(p);
-
-    if (hackApi.getCurrentUser()) {
-      const syncedPasses = await hackApi.syncMyPasses();
-      setMyPasses(syncedPasses);
-    } else {
-      setMyPasses(hackApi.getMyPasses());
-    }
+    setMyPasses(syncedPasses);
 
     // Direct event deep-link via URL
     let resolvedTarget: HackEvent | null = null;
@@ -174,8 +204,12 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   };
 
   useEffect(() => {
-    fetchAllData();
-  }, [selectedType]);
+    if (currentUser) {
+      fetchAllData();
+    } else {
+      setLoading(false);
+    }
+  }, [selectedType, currentUser?.id]);
 
   // Handle browser Back/Forward navigation smoothly
   useEffect(() => {
@@ -255,9 +289,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   const handleLogout = async () => {
     await hackApi.logout();
     setCurrentUser(null);
-    setMyPasses([]);
-    setCreateEventModalOpen(false);
-    setOrganizerModalOpen(false);
+    clearPlatformState();
     navigateToTab('events');
   };
 
@@ -277,10 +309,199 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     setOrganizerModalOpen(true);
   };
 
-  const handleSwitchUser = (user: UserAccount) => {
-    setCurrentUser(user);
+  const handleEventUpdated = (updated: HackEvent) => {
+    setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setSelectedEvent((prev) => {
+      if (prev && prev.id === updated.id) {
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/e/')) {
+          const targetUrl = `/e/${encodeURIComponent(updated.slug)}${
+            updated.approvalStatus === 'private'
+              ? `?secret=${encodeURIComponent(updated.privateAccessCode)}`
+              : ''
+          }`;
+          window.history.replaceState({ eventSlug: updated.slug }, '', targetUrl);
+        }
+        return updated;
+      }
+      return prev;
+    });
+    setDashboardRefreshKey((k) => k + 1);
+    setEventDetailsRefreshKey((k) => k + 1);
     fetchAllData();
   };
+
+  const canEditSelectedEvent = Boolean(
+    selectedEvent &&
+      currentUser &&
+      (hackApi.isMasterAdminAuthenticated() ||
+        selectedEvent.organizerId === currentUser.id ||
+        (selectedEvent.organizerContact &&
+          selectedEvent.organizerContact.toLowerCase() === currentUser.email.toLowerCase()))
+  );
+
+  const urlParams = getUrlParams();
+
+  // Signed-Out Members-Only Lock Gate
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-nerdLime selection:text-nerdDark flex flex-col">
+        {/* Compact Members-Only Header */}
+        <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-xl border-b border-slate-200 px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto h-14 sm:h-16 flex items-center justify-between gap-3">
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToTab('events');
+              }}
+              className="flex items-center gap-2 shrink-0"
+            >
+              <img
+                src="/logo.png"
+                alt="Nerds Room Logo"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl object-cover shadow-md"
+              />
+              <span className="font-black text-base sm:text-xl tracking-tight text-nerdBlue whitespace-nowrap">
+                nerds room<span className="text-nerdLime">.</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-nerdLime text-nerdBlue text-[10px] font-black uppercase tracking-wider shadow-sm">
+                LEAGUE
+              </span>
+            </a>
+
+            <div className="flex items-center gap-2">
+              {activeTab === 'admin-panel' ? (
+                <button
+                  onClick={() => navigateToTab('events')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 hover:border-nerdBlue text-xs font-bold text-slate-700 hover:text-nerdBlue bg-white transition-all"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Sign In</span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold">
+                  <Lock className="w-3 h-3 text-nerdBlue" />
+                  <span className="hidden xs:inline">Members-Only</span>
+                </span>
+              )}
+              {onBackToMain && activeTab !== 'admin-panel' && (
+                <button
+                  onClick={onBackToMain}
+                  className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-nerdBlue px-2.5 py-1.5 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                  nerdsroom.org
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {authBannerError && (
+          <div className="max-w-lg w-[92%] mx-auto mt-4 bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 shadow-lg flex items-start justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-black">Authentication Notice</div>
+                <p className="mt-0.5">{authBannerError}</p>
+              </div>
+            </div>
+            <button onClick={() => setAuthBannerError('')} className="p-1 rounded-lg hover:bg-red-100 shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'admin-panel' ? (
+          <div className="flex-1 -mt-6">
+            <MasterAdminDashboard
+              onAdminUnlocked={(adminUser) => setCurrentUser(adminUser)}
+              onInspectEvent={(evt) => openEventView(evt)}
+              onBrowseLiveSite={() => navigateToTab('events')}
+              onLockSession={() => {
+                setCurrentUser(null);
+                clearPlatformState();
+                navigateToTab('events');
+              }}
+              onDataMutated={() => fetchAllData()}
+              onEventUpdated={handleEventUpdated}
+            />
+          </div>
+        ) : (
+          <main className="flex-1 w-full max-w-5xl mx-auto px-3.5 sm:px-6 py-6 sm:py-12 flex flex-col justify-center">
+            {urlParams.eventSlug && (
+              <div className="mb-5 p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-nerdDark text-xs flex items-start gap-2.5 shadow-sm">
+                <Lock className="w-4 h-4 text-nerdBlue shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-black">Event Invitation Ready:</span>{' '}
+                  Sign in or create your Nerds Room account below to open{' '}
+                  <code className="font-mono font-bold text-nerdBlue">/e/{urlParams.eventSlug}</code> and register.
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+              {/* Left Gate Intro */}
+              <div className="lg:col-span-6 space-y-4 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-extrabold text-nerdBlue shadow-sm">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>SIGN IN REQUIRED TO ACCESS PLATFORM</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-nerdDark leading-[1.1]">
+                  Sign In to Enter{' '}
+                  <span className="text-nerdBlue block sm:inline">Nerds Room League</span>
+                </h1>
+
+                <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-lg mx-auto lg:mx-0">
+                  Access to events, hackathons, passes, matchmaking teams, project shipyard, and the organizer portal is restricted to signed-in Nerds Room accounts.
+                </p>
+
+                <div className="hidden sm:grid grid-cols-3 gap-2.5 pt-2 max-w-lg mx-auto lg:mx-0 text-left">
+                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                    <Ticket className="w-4 h-4 text-nerdBlue mb-1" />
+                    <div className="font-bold text-xs text-slate-900">QR Tickets</div>
+                    <div className="text-[11px] text-slate-500">Verified event passes</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                    <Layers className="w-4 h-4 text-nerdBlue mb-1" />
+                    <div className="font-bold text-xs text-slate-900">Organizer Panel</div>
+                    <div className="text-[11px] text-slate-500">Host &amp; edit rounds</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                    <Rocket className="w-4 h-4 text-nerdBlue mb-1" />
+                    <div className="font-bold text-xs text-slate-900">Shipyard</div>
+                    <div className="text-[11px] text-slate-500">Teams &amp; submissions</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Sign-In Card */}
+              <div className="lg:col-span-6 flex justify-center w-full">
+                <AuthModal inline onSuccess={(user) => setCurrentUser(user)} />
+              </div>
+            </div>
+          </main>
+        )}
+
+        <footer className="border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 font-sans">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mb-1 font-bold">
+            <span className="text-nerdDark font-black">nerds room<span className="text-nerdLime">.</span></span>
+            <span>•</span>
+            <span className="text-nerdBlue">league.nerdsroom.org</span>
+          </div>
+          <div className="mt-2.5 flex items-center justify-center">
+            <button
+              onClick={() => setActiveTab('admin-panel')}
+              className="text-[10px] text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1 font-mono"
+              title="Core Team Console Gate (Restricted)"
+            >
+              <span>🔐 Core Team Gate</span>
+            </button>
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-nerdLime selection:text-nerdDark">
@@ -296,7 +517,12 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         currentUser={currentUser}
         onLogout={handleLogout}
         myPassesCount={myPasses.length}
-        onSwitchUser={handleSwitchUser}
+        onLockMasterSession={() => {
+          const remaining = hackApi.getCurrentUser();
+          setCurrentUser(remaining);
+          if (!remaining) clearPlatformState();
+          navigateToTab('events');
+        }}
       />
 
       {authBannerError && (
@@ -308,7 +534,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
               <p className="mt-0.5">{authBannerError}</p>
             </div>
           </div>
-          <button onClick={() => setAuthBannerError('')} className="p-1 rounded-lg hover:bg-red-100">
+          <button onClick={() => setAuthBannerError('')} className="p-1 rounded-lg hover:bg-red-100 shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -320,6 +546,8 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           event={selectedEvent}
           refreshKey={eventDetailsRefreshKey}
           existingPass={myPasses.find((p) => p.eventId === selectedEvent.id) || null}
+          canEdit={canEditSelectedEvent}
+          onEditClick={() => setEditingEvent(selectedEvent)}
           onViewPass={(rsvp) => {
             setViewingPass(rsvp);
             setViewingPassEventTitle(selectedEvent.title);
@@ -333,47 +561,36 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         <>
           {/* COMMON USER & ORGANIZER DASHBOARD */}
           {(activeTab === 'dashboard' || activeTab === 'student-dashboard' || activeTab === 'organizer-portal') && (
-            currentUser ? (
-              <UserDashboard
-                currentUser={currentUser}
-                initialMode={activeTab === 'organizer-portal' ? 'hosting' : 'attending'}
-                onViewPass={(rsvp, title) => {
-                  setViewingPass(rsvp);
-                  setViewingPassEventTitle(title);
-                }}
-                onBrowseEvents={() => navigateToTab('events')}
-                onOpenCreateEvent={handleOpenCreateEvent}
-                onOpenCheckInDesk={handleOpenCheckInDesk}
-                onSelectEvent={(evt) => openEventView(evt)}
-              />
-            ) : (
-              <main className="max-w-xl mx-auto px-4 pt-28 pb-16">
-                <div className="bg-white border-2 border-slate-200 rounded-3xl p-8 text-center shadow-lg space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-nerdBlue flex items-center justify-center mx-auto">
-                    <LogIn className="w-7 h-7" />
-                  </div>
-                  <h2 className="text-xl font-black text-nerdDark">Sign In to View Your Dashboard</h2>
-                  <p className="text-xs text-slate-500">
-                    Access your registered hackathon passes, track active rounds, or manage events you host.
-                  </p>
-                  <button
-                    onClick={() => setAuthModalOpen(true)}
-                    className="px-6 py-3 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all"
-                  >
-                    Sign In / Create Account
-                  </button>
-                </div>
-              </main>
-            )
+            <UserDashboard
+              currentUser={currentUser}
+              initialMode={activeTab === 'organizer-portal' ? 'hosting' : 'attending'}
+              refreshKey={dashboardRefreshKey}
+              onViewPass={(rsvp, title) => {
+                setViewingPass(rsvp);
+                setViewingPassEventTitle(title);
+              }}
+              onBrowseEvents={() => navigateToTab('events')}
+              onOpenCreateEvent={handleOpenCreateEvent}
+              onOpenCheckInDesk={handleOpenCheckInDesk}
+              onSelectEvent={(evt) => openEventView(evt)}
+              onEventUpdated={handleEventUpdated}
+            />
           )}
 
           {/* DEDICATED SEPARATE MASTER ADMIN PANEL (PROTECTED GATE) */}
           {activeTab === 'admin-panel' && (
             <MasterAdminDashboard
+              onAdminUnlocked={(adminUser) => setCurrentUser(adminUser)}
               onInspectEvent={(evt) => openEventView(evt)}
               onBrowseLiveSite={() => navigateToTab('events')}
-              onLockSession={() => navigateToTab('events')}
+              onLockSession={() => {
+                const remaining = hackApi.getCurrentUser();
+                setCurrentUser(remaining);
+                if (!remaining) clearPlatformState();
+                navigateToTab('events');
+              }}
               onDataMutated={() => fetchAllData()}
+              onEventUpdated={handleEventUpdated}
             />
           )}
 
@@ -393,11 +610,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                 onSelectFeatured={(evt) => openEventView(evt)}
               />
 
-              <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+              <main className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-8 sm:py-10">
                 
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                   <div>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
                       <span>Upcoming Hackathons & Challenges</span>
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-nerdBlue border border-blue-100">
                         {filteredEvents.length} Active
@@ -408,15 +625,13 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </p>
                   </div>
 
-                  {currentUser && (
-                    <button
-                      onClick={handleOpenCreateEvent}
-                      className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-sm transition-all"
-                    >
-                      <Plus className="w-4 h-4 text-nerdLime" />
-                      <span>Host New Event</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={handleOpenCreateEvent}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-sm transition-all self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4 text-nerdLime" />
+                    <span>Host New Event</span>
+                  </button>
                 </div>
 
                 {loading ? (
@@ -424,13 +639,28 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     <span className="inline-block animate-spin mr-2">⚡</span> Loading events...
                   </div>
                 ) : filteredEvents.length === 0 ? (
-                  <div className="py-16 text-center bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+                  <div className="py-14 px-5 text-center bg-white border border-slate-200 rounded-3xl shadow-sm">
                     <Terminal className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <h3 className="text-sm font-bold text-slate-700">No events found matching your query</h3>
-                    <p className="text-xs text-slate-400 mt-1">Try resetting search filters or grepping a different tag.</p>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      {events.length === 0 ? 'No live events published yet' : 'No events found matching your query'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">
+                      {events.length === 0
+                        ? 'Launch your first hackathon or workshop in 60 seconds and customize rounds after launch.'
+                        : 'Try resetting search filters or grepping a different keyword.'}
+                    </p>
+                    {events.length === 0 && (
+                      <button
+                        onClick={handleOpenCreateEvent}
+                        className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all"
+                      >
+                        <Plus className="w-4 h-4 text-nerdLime" />
+                        <span>Host First Event</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
                     {filteredEvents.map((evt) => (
                       <EventCard
                         key={evt.id}
@@ -447,12 +677,12 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
           {/* TAB 2: LOOKING FOR TEAM BOARD */}
           {activeTab === 'teams' && (
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-12">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <main className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-12">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Users className="w-5 h-5 text-nerdBlue" />
-                    <h2 className="text-lg font-black text-slate-900">
+                    <h2 className="text-base sm:text-lg font-black text-slate-900">
                       Hacker Team Matchmaking
                     </h2>
                   </div>
@@ -463,24 +693,24 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                 {events.length > 0 ? (
                   <button
                     onClick={() => setCreateTeamEvent(events[0])}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                   >
                     <Plus className="w-4 h-4 text-nerdLime" />
                     <span>Post Team Listing</span>
                   </button>
-                ) : currentUser ? (
+                ) : (
                   <button
                     onClick={handleOpenCreateEvent}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                   >
                     <Plus className="w-4 h-4 text-nerdLime" />
                     <span>Host First Event</span>
                   </button>
-                ) : null}
+                )}
               </div>
 
               {allTeams.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-center shadow-sm">
                   <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                   <h3 className="text-sm font-bold text-slate-700">No open team listings yet</h3>
                   <p className="text-xs text-slate-400 mt-1 mb-5">
@@ -495,21 +725,21 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </button>
                   ) : (
                     <button
-                      onClick={() => (currentUser ? handleOpenCreateEvent() : navigateToTab('events'))}
+                      onClick={handleOpenCreateEvent}
                       className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
                     >
-                      {currentUser ? '+ Host First Event' : 'Browse Events'}
+                      + Host First Event
                     </button>
                   )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {allTeams.map((team) => (
-                  <div key={team.id} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                  <div key={team.id} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold text-base text-slate-900">{team.teamName}</h4>
-                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <h4 className="font-bold text-base text-slate-900 truncate">{team.teamName}</h4>
+                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
                           {team.membersCount}/{team.maxMembers} Members
                         </span>
                       </div>
@@ -545,12 +775,12 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
           {/* TAB 3: PROJECT SHIPYARD GALLERY */}
           {activeTab === 'shipyard' && (
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-12">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <main className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-12">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Rocket className="w-5 h-5 text-nerdBlue" />
-                    <h2 className="text-lg font-black text-slate-900">
+                    <h2 className="text-base sm:text-lg font-black text-slate-900">
                       Project Shipyard & Demo Arena
                     </h2>
                   </div>
@@ -561,24 +791,24 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                 {events.length > 0 ? (
                   <button
                     onClick={() => setSubmitProjectEvent(events[0])}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                   >
                     <Plus className="w-4 h-4 text-nerdLime" />
                     <span>Submit Hack</span>
                   </button>
-                ) : currentUser ? (
+                ) : (
                   <button
                     onClick={handleOpenCreateEvent}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
                   >
                     <Plus className="w-4 h-4 text-nerdLime" />
                     <span>Host First Event</span>
                   </button>
-                ) : null}
+                )}
               </div>
 
               {allProjects.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-center shadow-sm">
                   <Rocket className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                   <h3 className="text-sm font-bold text-slate-700">No shipped projects yet</h3>
                   <p className="text-xs text-slate-400 mt-1 mb-5">
@@ -593,15 +823,15 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                     </button>
                   ) : (
                     <button
-                      onClick={() => (currentUser ? handleOpenCreateEvent() : navigateToTab('events'))}
+                      onClick={handleOpenCreateEvent}
                       className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
                     >
-                      {currentUser ? '+ Host First Event' : 'Browse Events'}
+                      + Host First Event
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                   {allProjects.map((proj) => (
                   <div key={proj.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm">
                     <div className="h-44 bg-slate-100 overflow-hidden relative">
@@ -617,7 +847,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                       </div>
                     </div>
 
-                    <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
                       <div>
                         <h4 className="font-bold text-base text-slate-900 mb-1">{proj.title}</h4>
                         <p className="text-slate-600 text-xs mb-3">{proj.tagline}</p>
@@ -630,11 +860,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
-                        <div className="text-slate-500">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs">
+                        <div className="text-slate-500 truncate max-w-[60%]">
                           By: {proj.teamMembers.join(', ')}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 shrink-0">
                           {proj.repoUrl && (
                             <a href={proj.repoUrl} target="_blank" rel="noreferrer" className="text-slate-700 hover:text-nerdBlue font-bold underline">
                               GitHub
@@ -657,23 +887,23 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
           {/* TAB 4: MY SAVED PASSES */}
           {activeTab === 'passes' && (
-            <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-12">
+            <main className="max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-12">
               <div className="flex items-center gap-2 mb-6">
                 <Ticket className="w-5 h-5 text-nerdBlue" />
-                <h2 className="text-lg font-black text-slate-900">
+                <h2 className="text-base sm:text-lg font-black text-slate-900">
                   My Event Badges & QR Passes
                 </h2>
               </div>
 
               {myPasses.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-center shadow-sm">
                   <Ticket className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <h3 className="text-sm font-bold text-slate-700">No active passes in this browser</h3>
+                  <h3 className="text-sm font-bold text-slate-700">No active passes yet</h3>
                   <p className="text-xs text-slate-400 mt-1 mb-5">
                     RSVP to an upcoming event to instantly generate your verifiable ticket QR badge.
                   </p>
                   <button
-                    onClick={() => setActiveTab('events')}
+                    onClick={() => navigateToTab('events')}
                     className="px-5 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
                   >
                     Browse Events
@@ -690,7 +920,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                           setViewingPass(p);
                           setViewingPassEventTitle(evt?.title || 'Nerds Room Event');
                         }}
-                        className="cursor-pointer bg-white border border-slate-200 hover:border-nerdBlue rounded-2xl p-5 transition-all hover:shadow-lg shadow-sm"
+                        className="cursor-pointer bg-white border border-slate-200 hover:border-nerdBlue rounded-2xl p-4 sm:p-5 transition-all hover:shadow-lg shadow-sm"
                       >
                         <div className="flex items-center justify-between mb-3">
                           <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
@@ -702,9 +932,9 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
                           </span>
                           <span className="text-xs font-mono font-bold text-nerdBlue">{p.passCode}</span>
                         </div>
-                        <h4 className="text-base font-bold text-slate-900 mb-0.5">{p.hackerName}</h4>
-                        <div className="text-xs text-nerdBlue font-bold mb-1">{evt?.title || 'Event Pass'}</div>
-                        <div className="text-xs text-slate-500 mb-4">{p.hackerRole} • {p.teamName}</div>
+                        <h4 className="text-base font-bold text-slate-900 mb-0.5 truncate">{p.hackerName}</h4>
+                        <div className="text-xs text-nerdBlue font-bold mb-1 truncate">{evt?.title || 'Event Pass'}</div>
+                        <div className="text-xs text-slate-500 mb-4 truncate">{p.hackerRole} • {p.teamName}</div>
                         <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-bold">
                           <span>Click to view QR Pass</span>
                           <span className="text-nerdBlue">→</span>
@@ -720,20 +950,20 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 font-sans">
-        <div className="flex items-center justify-center gap-2 mb-1 font-bold">
+      <footer className="border-t border-slate-200 bg-white py-8 px-4 text-center text-xs text-slate-500 font-sans">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mb-1 font-bold">
           <span className="text-nerdDark font-black">nerds room<span className="text-nerdLime">.</span></span>
           <span>•</span>
           <span className="text-nerdBlue">league.nerdsroom.org</span>
-          <span>•</span>
-          <span>Powered by Nerds Room Infrastructure</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:inline">Powered by Nerds Room Infrastructure</span>
         </div>
         <p className="text-[11px] text-slate-400">
           Open-Source Multi-Round Event Platform for Hackathons, Ideathons & Community Sprints.
         </p>
         <div className="mt-3 flex items-center justify-center">
           <button
-            onClick={() => setActiveTab('admin-panel')}
+            onClick={() => navigateToTab('admin-panel')}
             className="text-[10px] text-slate-300 hover:text-slate-600 transition-colors flex items-center gap-1 font-mono"
             title="Core Team Console Gate (Restricted)"
           >
@@ -758,7 +988,21 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
           onClose={() => setCreateEventModalOpen(false)}
           onEventCreated={(newEvent) => {
             setEvents(prev => [newEvent, ...prev]);
+            setDashboardRefreshKey(k => k + 1);
             openEventView(newEvent);
+            fetchAllData();
+          }}
+        />
+      )}
+
+      {currentUser && editingEvent && (
+        <EditEventModal
+          event={editingEvent}
+          isMasterAdmin={hackApi.isMasterAdminAuthenticated()}
+          onClose={() => setEditingEvent(null)}
+          onEventUpdated={(updated) => {
+            handleEventUpdated(updated);
+            setEditingEvent(null);
           }}
         />
       )}

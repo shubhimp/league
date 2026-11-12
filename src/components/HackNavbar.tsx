@@ -91,19 +91,18 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
             </span>
           </a>
 
-          {/* Center Navigation Links (Public & Community) */}
-          <div className="hidden lg:flex items-center gap-3 xl:gap-5 font-medium text-nerdDark text-[13px] xl:text-[14px]">
-            <button
-              onClick={() => setActiveTab('events')}
-              className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
-                activeTab === 'events' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
-              }`}
-            >
-              Events & Rounds
-            </button>
+          {/* Center Navigation Links (Members-Only Platform Links) */}
+          {currentUser && (
+            <div className="hidden lg:flex items-center gap-3 xl:gap-5 font-medium text-nerdDark text-[13px] xl:text-[14px]">
+              <button
+                onClick={() => setActiveTab('events')}
+                className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
+                  activeTab === 'events' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
+                }`}
+              >
+                Events &amp; Rounds
+              </button>
 
-            {/* Common User & Organizer Dashboard */}
-            {currentUser && (
               <button
                 onClick={() => setActiveTab('dashboard')}
                 className={`hover:text-nerdBlue transition-colors font-bold flex items-center gap-1.5 whitespace-nowrap ${
@@ -114,54 +113,54 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
                 <span>My Dashboard</span>
                 <span className="w-2 h-2 rounded-full bg-nerdLime animate-pulse" />
               </button>
-            )}
 
-            {/* ONLY VISIBLE IF ACTIVELY AUTHENTICATED AS MASTER ADMIN */}
-            {isMasterAdminActive && (
-              <button
-                onClick={() => setActiveTab('admin-panel')}
-                className={`hover:text-purple-900 transition-colors font-bold flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 shadow-sm ${
-                  activeTab === 'admin-panel' ? 'ring-2 ring-purple-400 font-black' : ''
-                }`}
-                title="Private Core Team Console"
-              >
-                <Crown className="w-3.5 h-3.5 text-purple-700" />
-                <span>👑 Master Control</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => setActiveTab('teams')}
-              className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
-                activeTab === 'teams' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
-              }`}
-            >
-              Find Team
-            </button>
-
-            <button
-              onClick={() => setActiveTab('shipyard')}
-              className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
-                activeTab === 'shipyard' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
-              }`}
-            >
-              Shipyard
-            </button>
-
-            <button
-              onClick={() => setActiveTab('passes')}
-              className={`hover:text-nerdBlue transition-colors font-bold flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'passes' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
-              }`}
-            >
-              <span>My Passes</span>
-              {myPassesCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-nerdLime text-nerdBlue text-[10px] font-black flex items-center justify-center">
-                  {myPassesCount}
-                </span>
+              {/* ONLY VISIBLE IF ACTIVELY AUTHENTICATED AS MASTER ADMIN */}
+              {isMasterAdminActive && (
+                <button
+                  onClick={() => setActiveTab('admin-panel')}
+                  className={`hover:text-purple-900 transition-colors font-bold flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 shadow-sm ${
+                    activeTab === 'admin-panel' ? 'ring-2 ring-purple-400 font-black' : ''
+                  }`}
+                  title="Private Core Team Console"
+                >
+                  <Crown className="w-3.5 h-3.5 text-purple-700" />
+                  <span>👑 Master Control</span>
+                </button>
               )}
-            </button>
-          </div>
+
+              <button
+                onClick={() => setActiveTab('teams')}
+                className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
+                  activeTab === 'teams' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
+                }`}
+              >
+                Find Team
+              </button>
+
+              <button
+                onClick={() => setActiveTab('shipyard')}
+                className={`hover:text-nerdBlue transition-colors font-bold whitespace-nowrap ${
+                  activeTab === 'shipyard' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
+                }`}
+              >
+                Shipyard
+              </button>
+
+              <button
+                onClick={() => setActiveTab('passes')}
+                className={`hover:text-nerdBlue transition-colors font-bold flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'passes' ? 'text-nerdBlue border-b-2 border-nerdBlue pb-0.5' : 'text-slate-700'
+                }`}
+              >
+                <span>My Passes</span>
+                {myPassesCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-nerdLime text-nerdBlue text-[10px] font-black flex items-center justify-center">
+                    {myPassesCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -179,7 +178,7 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
 
                 <button
                   onClick={onOpenCheckInDesk}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-full border border-slate-200 hover:border-nerdBlue text-slate-700 hover:text-nerdBlue text-xs font-bold transition-all bg-white/80"
+                  className="hidden sm:inline-flex items-center p-1.5 sm:px-2.5 sm:py-1.5 rounded-full border border-slate-200 hover:border-nerdBlue text-slate-700 hover:text-nerdBlue text-xs font-bold transition-all bg-white/80"
                   title="Scanner Check-In Desk"
                 >
                   <Shield className="w-3.5 h-3.5 text-nerdBlue inline sm:mr-1" />
@@ -209,16 +208,16 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
               ) : (
                 <button
                   onClick={onOpenAuth}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-nerdBlue hover:bg-nerdLime/20 font-bold text-xs transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-nerdBlue text-white hover:bg-blue-800 font-bold text-xs transition-colors"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  <span>Sign In</span>
                 </button>
               )}
 
-              {/* Profile Dropdown (Strictly Clean - NO public Master Admin switcher!) */}
+              {/* Profile Dropdown */}
               {roleDropdownOpen && currentUser && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[250] text-xs">
+                <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[250] text-xs">
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
                     <div className="font-bold text-slate-900 truncate">{currentUser.name}</div>
                     <div className="text-[11px] text-slate-500 truncate">{currentUser.email}</div>
@@ -324,66 +323,75 @@ export const HackNavbar: React.FC<HackNavbarProps> = ({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-[64px] sm:top-[72px] bg-white border-b-2 border-nerdBlue shadow-2xl p-6 lg:hidden z-[200] space-y-3 font-bold text-nerdBlue">
-          <button
-            onClick={() => { setActiveTab('events'); setMobileMenuOpen(false); }}
-            className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
-          >
-            <span>EVENTS & ROUNDS</span> <span className="text-nerdLime">-&gt;</span>
-          </button>
-
-          {currentUser && (
+        <div className="fixed inset-x-0 top-[62px] sm:top-[72px] bg-white border-b-2 border-nerdBlue shadow-2xl p-4 sm:p-6 max-h-[calc(100dvh-4.5rem)] overflow-y-auto lg:hidden z-[200] space-y-2.5 font-bold text-nerdBlue text-xs sm:text-sm">
+          {currentUser ? (
             <>
+              <button
+                onClick={() => { setActiveTab('events'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
+              >
+                <span>EVENTS &amp; ROUNDS</span> <span className="text-nerdLime">-&gt;</span>
+              </button>
+
               <button
                 onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
                 className="w-full text-left p-2.5 rounded-xl bg-blue-50 text-nerdBlue flex items-center justify-between"
               >
                 <span>MY DASHBOARD</span> <span className="text-nerdBlue">-&gt;</span>
               </button>
+
               <button
                 onClick={() => { setActiveTab('organizer-portal'); setMobileMenuOpen(false); }}
                 className="w-full text-left p-2.5 rounded-xl bg-blue-50/60 text-nerdBlue flex items-center justify-between"
               >
                 <span>ORGANIZER PANEL</span> <span className="text-nerdBlue">-&gt;</span>
               </button>
+
+              {isMasterAdminActive && (
+                <button
+                  onClick={() => { setActiveTab('admin-panel'); setMobileMenuOpen(false); }}
+                  className="w-full text-left p-2.5 rounded-xl bg-purple-50 text-purple-900 flex items-center justify-between"
+                >
+                  <span>👑 MASTER CONTROL</span> <span className="text-purple-700">-&gt;</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => { setActiveTab('teams'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
+              >
+                <span>FIND TEAM</span> <span className="text-nerdLime">-&gt;</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('shipyard'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
+              >
+                <span>SHIPYARD DEMOS</span> <span className="text-nerdLime">-&gt;</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('passes'); setMobileMenuOpen(false); }}
+                className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
+              >
+                <span>MY PASSES ({myPassesCount})</span> <span className="text-nerdLime">-&gt;</span>
+              </button>
+
+              <div className="pt-2 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { onOpenCheckInDesk(); setMobileMenuOpen(false); }}
+                  className="text-center py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 hover:border-nerdBlue font-bold text-xs"
+                >
+                  CHECK-IN DESK
+                </button>
+                <button
+                  onClick={() => { onOpenCreateEvent(); setMobileMenuOpen(false); }}
+                  className="text-center py-2.5 px-3 rounded-xl bg-nerdBlue text-white hover:bg-nerdLime hover:text-nerdBlue font-black text-xs"
+                >
+                  + HOST EVENT
+                </button>
+              </div>
             </>
-          )}
-
-          {isMasterAdminActive && (
-            <button
-              onClick={() => { setActiveTab('admin-panel'); setMobileMenuOpen(false); }}
-              className="w-full text-left p-2.5 rounded-xl bg-purple-50 text-purple-900 flex items-center justify-between"
-            >
-              <span>👑 MASTER CONTROL</span> <span className="text-purple-700">-&gt;</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => { setActiveTab('teams'); setMobileMenuOpen(false); }}
-            className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
-          >
-            <span>FIND TEAM</span> <span className="text-nerdLime">-&gt;</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('shipyard'); setMobileMenuOpen(false); }}
-            className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
-          >
-            <span>SHIPYARD DEMOS</span> <span className="text-nerdLime">-&gt;</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('passes'); setMobileMenuOpen(false); }}
-            className="w-full text-left p-2.5 rounded-xl hover:bg-gray-50 flex items-center justify-between"
-          >
-            <span>MY PASSES ({myPassesCount})</span> <span className="text-nerdLime">-&gt;</span>
-          </button>
-          
-          {currentUser ? (
-            <button
-              onClick={() => { onOpenCreateEvent(); setMobileMenuOpen(false); }}
-              className="w-full text-center py-3 rounded-xl bg-nerdBlue text-white hover:bg-nerdLime hover:text-nerdBlue font-black"
-            >
-              + HOST NEW EVENT
-            </button>
           ) : (
             <button
               onClick={() => { onOpenAuth(); setMobileMenuOpen(false); }}

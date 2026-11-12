@@ -44,24 +44,24 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col text-xs">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[92dvh] flex flex-col text-xs">
         
         {/* Header */}
-        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2">
-            <Rocket className="w-5 h-5 text-nerdLime" />
-            <span className="text-sm font-bold uppercase tracking-tight">
-              Ship Your Hack // Project Demo Submission
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-4 sm:px-6 py-4 text-white flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <Rocket className="w-5 h-5 text-nerdLime shrink-0" />
+            <span className="text-sm font-bold uppercase tracking-tight truncate">
+              Ship Your Hack // Project Demo
             </span>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center">
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-slate-700 mb-1 font-bold">Project Name *</label>
             <input
@@ -70,7 +70,7 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. KernelPulse Daemon"
-              className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
             />
           </div>
 
@@ -81,7 +81,7 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               placeholder="e.g. A real-time memory telemetry monitor running inside Linux LXC..."
-              className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
             />
           </div>
 
@@ -97,7 +97,7 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
                 placeholder="https://github.com/..."
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
               />
             </div>
             <div>
@@ -110,7 +110,7 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
                 value={demoUrl}
                 onChange={(e) => setDemoUrl(e.target.value)}
                 placeholder="https://...hackclub.app"
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
               value={tagsStr}
               onChange={(e) => setTagsStr(e.target.value)}
               placeholder="Rust, Python, WebAssembly, Next.js"
-              className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
             />
           </div>
 
@@ -133,11 +133,11 @@ export const ProjectShipyardModal: React.FC<ProjectShipyardModalProps> = ({
               value={teamMembersStr}
               onChange={(e) => setTeamMembersStr(e.target.value)}
               placeholder="adityasharma, elena-builds"
-              className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+              className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
             />
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={onClose}

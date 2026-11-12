@@ -35,189 +35,9 @@ const STORAGE_KEYS = {
   PENDING_OAUTH_ROLE: 'nerds_league_pending_role',
 };
 
-// Preset demo accounts (Student & Organizer test switchers only - never Master Admin)
-export const DEMO_USERS: Record<'student' | 'organizer', UserAccount> = {
-  student: {
-    id: 'usr_student_01',
-    name: 'Rohan Verma',
-    email: 'rohan@student.nerdsroom.org',
-    role: 'student',
-    avatarUrl: 'https://api.dicebear.com/7.x/notionists/svg?seed=Rohan',
-    githubHandle: 'rohan-builds',
-    college: 'IIT Delhi / Nerds Room Fellow',
-  },
-  organizer: {
-    id: 'usr_org_01',
-    name: 'Aditya Sharma',
-    email: 'aditya@nerdsroom.org',
-    role: 'organizer',
-    avatarUrl: 'https://api.dicebear.com/7.x/notionists/svg?seed=Aditya',
-    githubHandle: 'adityasharma',
-    college: 'Nerds Room Lead Organizer',
-  },
-};
-
-// Initial fallback seed events (used only before Supabase SQL schema is initialized)
-const DEFAULT_EVENTS: HackEvent[] = [
-  {
-    id: 'evt_hack_01',
-    slug: 'nerdhacks-2026',
-    title: 'NerdHacks 2026: AI & Systems Jam',
-    tagline: '36 Hours of shipping compilers, local LLM agents, and hardware cybernetics.',
-    description:
-      'The flagship hackathon of Nerds Room. 36 hours of relentless building, open-source hacking, free fuel, and $15,000+ in bounties. Bring your solder irons, your laptops, and your bold ideas.',
-    eventType: 'hackathon',
-    status: 'active',
-    approvalStatus: 'approved',
-    isFeatured: true,
-    privateAccessCode: 'public_live',
-    organizerId: 'usr_org_01',
-    organizerName: 'Aditya Sharma',
-    organizerOrg: 'Nerds Room Lead Organizer',
-    coverUrl:
-      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
-    startTime: '2026-11-15T09:00:00.000Z',
-    endTime: '2026-11-16T21:00:00.000Z',
-    location: 'Bengaluru / Hybrid & Global Virtual',
-    venueType: 'hybrid',
-    discordChannel: '#nerdhacks-2026',
-    maxCapacity: 500,
-    tags: ['AI Agents', 'Rust', 'Linux', 'Hardware', 'Open Source'],
-    rsvpCount: 168,
-    prizes: [
-      {
-        title: 'Grand Grandmaster Hack',
-        amount: '$5,000',
-        description: 'Best overall technical feat and execution',
-      },
-      {
-        title: 'Hardware & IoT Runner',
-        amount: '$3,000',
-        description: 'Physical computing with ESP32 or Raspberry Pi',
-      },
-      {
-        title: 'Local AI Agent Bounty',
-        amount: '$2,500',
-        description: 'Most ingenious offline/local LLM architecture',
-      },
-    ],
-    schedule: [
-      { time: 'Day 1 - 09:00 AM', title: 'Check-in & Breakfast', track: 'General', speaker: 'Core Team' },
-      { time: 'Day 1 - 10:30 AM', title: 'Opening Ceremony & Tracks', track: 'Main Stage', speaker: 'Mentors' },
-      { time: 'Day 2 - 06:00 PM', title: 'Live Demos & Closing Ceremony', track: 'Main Stage', speaker: 'Judges' },
-    ],
-    rounds: [
-      {
-        id: 'rnd_1',
-        roundNumber: 1,
-        title: 'Round 1: Registration & Abstract Pitch',
-        startDate: '2026-10-15',
-        endDate: '2026-11-05',
-        description: 'Submit your team members, preferred technical track, and a 2-paragraph project idea proposal.',
-        status: 'active',
-        submissionType: 'deck',
-      },
-      {
-        id: 'rnd_2',
-        roundNumber: 2,
-        title: 'Round 2: 36-Hour Hackathon & Code Freeze',
-        startDate: '2026-11-15',
-        endDate: '2026-11-16',
-        description: 'Live hacking period. Push code to a public GitHub repo and record a 2-minute demo.',
-        status: 'upcoming',
-        submissionType: 'github',
-      },
-      {
-        id: 'rnd_3',
-        roundNumber: 3,
-        title: 'Round 3: Grand Finale & Live Jury Demos',
-        startDate: '2026-11-16',
-        endDate: '2026-11-16',
-        description: 'Top 10 shortlisted teams pitch live on stage in front of judges.',
-        status: 'upcoming',
-        submissionType: 'offline',
-      },
-    ],
-    importantLinks: [
-      { id: 'lnk_1', title: 'Official Discord Channel', url: 'https://discord.gg/nerdsroom', type: 'discord' },
-      { id: 'lnk_2', title: 'Rulebook & Problem Statements', url: 'https://notion.so/nerdsroom/rulebook', type: 'rulebook' },
-      { id: 'lnk_3', title: 'WhatsApp Attendees Group', url: 'https://chat.whatsapp.com/nerdsroom', type: 'whatsapp' },
-    ],
-  },
-  {
-    id: 'evt_hack_02',
-    slug: 'kernel-and-terminal-sprint',
-    title: 'Kernel & Cybernetics Speedrun',
-    tagline: 'Write a tiny OS, custom shell, or bootloader in a weekend.',
-    description:
-      'A deep-dive low-level systems hackathon. Build hyper-minimalist tools, terminal TUIs, RISC-V emulators, and networked daemons on bare metal.',
-    eventType: 'hackathon',
-    status: 'upcoming',
-    approvalStatus: 'approved',
-    isFeatured: true,
-    privateAccessCode: 'public_live',
-    organizerId: 'usr_org_01',
-    organizerName: 'Aditya Sharma',
-    organizerOrg: 'Nerds Room Core Systems',
-    coverUrl:
-      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
-    startTime: '2026-12-05T10:00:00.000Z',
-    endTime: '2026-12-06T18:00:00.000Z',
-    location: 'Delhi NCR & Live Stream',
-    venueType: 'in-person',
-    discordChannel: '#kernel-sprint',
-    maxCapacity: 200,
-    tags: ['C/C++', 'Rust', 'Assembly', 'Linux', 'Retro'],
-    rsvpCount: 84,
-    prizes: [
-      { title: 'Iron Ring Low-Level Award', amount: '$2,500', description: 'Most impressive bare-metal achievement' },
-    ],
-    schedule: [],
-    rounds: [
-      {
-        id: 'rnd_k1',
-        roundNumber: 1,
-        title: 'Round 1: Initial Architecture RFC',
-        startDate: '2026-11-20',
-        endDate: '2026-12-01',
-        description: 'Submit an architectural RFC for your kernel, driver, or custom emulator.',
-        status: 'upcoming',
-        submissionType: 'link',
-      },
-      {
-        id: 'rnd_k2',
-        roundNumber: 2,
-        title: 'Round 2: Speedrun Hacking & Benchmark',
-        startDate: '2026-12-05',
-        endDate: '2026-12-06',
-        description: 'Code submission and automated benchmark testing on bare-metal rigs.',
-        status: 'upcoming',
-        submissionType: 'github',
-      },
-    ],
-    importantLinks: [
-      { id: 'lnk_k1', title: 'Discord #kernel-sprint', url: 'https://discord.gg/nerdsroom', type: 'discord' },
-    ],
-  },
-];
-
-const DEFAULT_RSVPS: HackerRSVP[] = [
-  {
-    id: 'rsvp_demo_01',
-    eventId: 'evt_hack_01',
-    hackerName: 'Rohan Verma',
-    email: 'rohan@student.nerdsroom.org',
-    githubHandle: 'rohan-builds',
-    discordTag: 'rohan#1337',
-    hackerRole: 'AI & Systems Hacker',
-    teamName: 'CyberPunks',
-    dietaryNeeds: 'Vegetarian',
-    passCode: 'NR-A89F2',
-    checkedIn: true,
-    checkedInAt: '2026-10-25T11:20:00.000Z',
-    createdAt: '2026-10-15T10:00:00.000Z',
-  },
-];
+const LEGACY_DEMO_EVENT_IDS = new Set(['evt_hack_01', 'evt_hack_02']);
+const LEGACY_DEMO_USER_IDS = new Set(['usr_student_01', 'usr_org_01']);
+const LEGACY_DEMO_RSVP_IDS = new Set(['rsvp_demo_01']);
 
 // Row <-> Domain Mappers for Supabase snake_case columns
 function mapRowToEvent(row: any): HackEvent {
@@ -343,13 +163,13 @@ function formatAuthError(rawMessage: string, context: 'signup' | 'signin' | 'goo
   const lower = msg.toLowerCase();
 
   if (context === 'google' && (lower.includes('provider is not enabled') || lower.includes('unsupported provider'))) {
-    return 'Google Sign-In is not enabled in Supabase Auth yet. Enable Google under Authentication → Providers in Supabase Dashboard, or use Email/Password / Quick Test Sign-In below.';
+    return 'Google Sign-In is not enabled in Supabase Auth yet. Enable Google under Authentication → Providers in Supabase Dashboard, or sign in with Email and Password.';
   }
   if (lower.includes('email rate limit exceeded') || lower.includes('over_email_send_rate_limit') || lower.includes('rate limit')) {
-    return 'Supabase free confirmation-email limit reached. Turn OFF "Confirm email" under Supabase Authentication → Providers → Email for instant unlimited signups, or use Quick Test Sign-In.';
+    return 'Email confirmation limit reached. Please wait a minute and try again, or sign in with Google.';
   }
   if (lower.includes('email not confirmed')) {
-    return 'Your email address is not confirmed yet. Check your inbox for the verification link, or disable "Confirm email" in Supabase Authentication → Providers → Email.';
+    return 'Your email address is not confirmed yet. Check your inbox for the verification link to activate your account.';
   }
   if (lower.includes('invalid login credentials')) {
     return 'Incorrect email or password. Double-check your credentials or create a new account.';
@@ -367,18 +187,43 @@ class HackApiService {
   }
 
   private initializeLocalCache() {
-    if (!localStorage.getItem(STORAGE_KEYS.EVENTS)) {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(DEFAULT_EVENTS));
+    try {
+      const rawEvents: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+      const cleanedEvents = Array.isArray(rawEvents)
+        ? rawEvents.filter((e) => !LEGACY_DEMO_EVENT_IDS.has(e.id))
+        : [];
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(cleanedEvents));
+    } catch {
+      localStorage.setItem(STORAGE_KEYS.EVENTS, '[]');
     }
-    if (!localStorage.getItem(STORAGE_KEYS.RSVPS)) {
-      localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(DEFAULT_RSVPS));
+
+    try {
+      const rawRsvps: HackerRSVP[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RSVPS) || '[]');
+      const cleanedRsvps = Array.isArray(rawRsvps)
+        ? rawRsvps.filter((r) => !LEGACY_DEMO_RSVP_IDS.has(r.id) && !LEGACY_DEMO_EVENT_IDS.has(r.eventId))
+        : [];
+      localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(cleanedRsvps));
+    } catch {
+      localStorage.setItem(STORAGE_KEYS.RSVPS, '[]');
     }
-    const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    this.currentUser = savedUser ? JSON.parse(savedUser) : null;
+
+    try {
+      const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      const parsedUser: UserAccount | null = savedUser ? JSON.parse(savedUser) : null;
+      if (parsedUser && LEGACY_DEMO_USER_IDS.has(parsedUser.id)) {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+        this.currentUser = null;
+      } else {
+        this.currentUser = parsedUser;
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      this.currentUser = null;
+    }
   }
 
   // ===========================================================================
-  // 1. AUTHENTICATION (Self-Made Email/Password + Google OAuth via Supabase)
+  // 1. AUTHENTICATION (Email/Password + Google OAuth via Supabase)
   // ===========================================================================
 
   public getCurrentUser(): UserAccount | null {
@@ -394,12 +239,6 @@ class HackApiService {
         localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
       }
     }
-  }
-
-  public switchRole(role: 'student' | 'organizer'): UserAccount {
-    const user = DEMO_USERS[role];
-    this.setCurrentUser(user);
-    return user;
   }
 
   public async signUpWithEmail(params: {
@@ -473,6 +312,10 @@ class HackApiService {
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.PENDING_OAUTH_ROLE, preferredRole);
+        const currentRelPath = window.location.pathname + window.location.search;
+        if (currentRelPath && currentRelPath !== '/') {
+          sessionStorage.setItem('nerds_pending_redirect', currentRelPath);
+        }
       }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -750,7 +593,7 @@ class HackApiService {
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
     }
-    return DEFAULT_EVENTS;
+    return [];
   }
 
   public async getEvents(filterType?: string, accessCode?: string): Promise<HackEvent[]> {
@@ -873,10 +716,13 @@ class HackApiService {
   }
 
   public async createEvent(eventData: Partial<HackEvent>): Promise<HackEvent> {
+    const user = this.currentUser;
+    if (!user) {
+      throw new Error('You must sign in before creating an event.');
+    }
     const title = eventData.title || 'Untitled Hackathon';
-    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'event';
     const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
-    const user = this.currentUser || DEMO_USERS.organizer;
     const privateAccessCode = `secret_${Math.random().toString(36).substring(2, 9)}`;
 
     const newEvent: HackEvent = {
@@ -895,7 +741,7 @@ class HackApiService {
       privateAccessCode,
       organizerId: user.id,
       organizerName: eventData.organizerName || user.name,
-      organizerOrg: eventData.organizerOrg || user.college || 'Nerds Room Lead Organizer',
+      organizerOrg: eventData.organizerOrg || user.college || 'Nerds Room Community',
       organizerContact: eventData.organizerContact || user.email,
       coverUrl:
         eventData.coverUrl ||
@@ -935,6 +781,95 @@ class HackApiService {
     }
 
     return newEvent;
+  }
+
+  public async updateEvent(
+    eventId: string,
+    updates: Partial<HackEvent>
+  ): Promise<{ event?: HackEvent; error?: string }> {
+    const allEvents = await this.fetchAllEventsRaw();
+    const existing = allEvents.find((e) => e.id === eventId);
+    if (!existing) {
+      return { error: 'Event not found.' };
+    }
+
+    let cleanSlug = existing.slug;
+    if (typeof updates.slug === 'string') {
+      cleanSlug = updates.slug
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      if (cleanSlug.length < 3) {
+        return { error: 'Custom URL slug must be at least 3 characters (letters, numbers, hyphens).' };
+      }
+
+      const duplicateLocal = allEvents.find((e) => e.id !== eventId && e.slug === cleanSlug);
+      if (duplicateLocal) {
+        return { error: `The URL slug "/e/${cleanSlug}" is already taken by another event.` };
+      }
+    }
+
+    const merged: HackEvent = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      slug: cleanSlug,
+      rounds: Array.isArray(updates.rounds)
+        ? updates.rounds.map((r, i) => ({ ...r, roundNumber: i + 1 }))
+        : existing.rounds,
+    };
+
+    const rowUpdates: Record<string, any> = {
+      slug: merged.slug,
+      title: merged.title,
+      tagline: merged.tagline,
+      description: merged.description,
+      event_type: merged.eventType,
+      venue_type: merged.venueType,
+      location: merged.location,
+      start_time: merged.startTime,
+      end_time: merged.endTime,
+      cover_url: merged.coverUrl,
+      organizer_name: merged.organizerName,
+      organizer_org: merged.organizerOrg || 'Nerds Room Community',
+      tags: merged.tags,
+      prizes: merged.prizes,
+      rounds: merged.rounds,
+      important_links: merged.importantLinks,
+      approval_status: merged.approvalStatus,
+      is_featured: merged.isFeatured,
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .update(rowUpdates)
+        .eq('id', eventId)
+        .select('*')
+        .maybeSingle();
+
+      if (error) {
+        if (error.code === '23505' || error.message?.toLowerCase().includes('duplicate')) {
+          return { error: `The URL slug "/e/${cleanSlug}" is already taken. Choose another one.` };
+        }
+        return { error: error.message || 'Failed to update event.' };
+      }
+
+      const saved = data ? mapRowToEvent(data) : merged;
+      if (typeof window !== 'undefined') {
+        const cached: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+        const nextList = cached.some((e) => e.id === eventId)
+          ? cached.map((e) => (e.id === eventId ? saved : e))
+          : [saved, ...cached];
+        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(nextList));
+      }
+      return { event: saved };
+    } catch (err: any) {
+      return { error: err?.message || 'Unable to save event changes.' };
+    }
   }
 
   // ===========================================================================
@@ -1051,6 +986,9 @@ class HackApiService {
     } else {
       sessionStorage.removeItem('nerds_master_authenticated');
       sessionStorage.removeItem('nerds_master_token');
+      if (this.currentUser?.id === 'usr_admin_01') {
+        this.setCurrentUser(null);
+      }
     }
   }
 
@@ -1060,11 +998,10 @@ class HackApiService {
 
   public async getStudentRegistrations(email?: string): Promise<{ rsvp: HackerRSVP; event: HackEvent }[]> {
     const userEmail = (email || this.currentUser?.email || '').toLowerCase();
+    if (!userEmail) return [];
     const [rsvps, events] = await Promise.all([this.fetchAllRsvpsRaw(), this.fetchAllEventsRaw()]);
 
-    const userRsvps = userEmail
-      ? rsvps.filter((r) => r.email.toLowerCase() === userEmail)
-      : rsvps;
+    const userRsvps = rsvps.filter((r) => r.email.toLowerCase() === userEmail);
 
     return userRsvps
       .map((rsvp) => {
@@ -1088,6 +1025,9 @@ class HackApiService {
   ): Promise<{ rsvp: HackerRSVP; eventTitle: string }> {
     const events = await this.fetchAllEventsRaw();
     const event = events.find((e) => e.slug === slug || e.id === slug) || events[0];
+    if (!event) {
+      throw new Error('Event not found.');
+    }
     const passCode = `NR-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
     const newRsvp: HackerRSVP = {
@@ -1253,10 +1193,13 @@ class HackApiService {
   ): Promise<HackerTeam> {
     const events = await this.fetchAllEventsRaw();
     const targetEvent = events.find((e) => e.slug === eventSlug || e.id === eventSlug) || events[0];
+    if (!targetEvent) {
+      throw new Error('Create or select an event before posting a team listing.');
+    }
 
     const newTeam: HackerTeam = {
       id: 'team_' + Date.now(),
-      eventId: targetEvent?.id || 'evt_hack_01',
+      eventId: targetEvent.id,
       teamName: team.teamName,
       pitch: team.pitch,
       lookingForRoles: team.lookingForRoles,
@@ -1338,10 +1281,13 @@ class HackApiService {
   ): Promise<HackProject> {
     const events = await this.fetchAllEventsRaw();
     const targetEvent = events.find((e) => e.slug === eventSlug || e.id === eventSlug) || events[0];
+    if (!targetEvent) {
+      throw new Error('Create or select an event before submitting a project.');
+    }
 
     const newProj: HackProject = {
       id: 'proj_' + Date.now(),
-      eventId: targetEvent?.id || 'evt_hack_01',
+      eventId: targetEvent.id,
       title: project.title,
       tagline: project.tagline,
       repoUrl: project.repoUrl,

@@ -152,29 +152,30 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ event, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans animate-fade-in">
-      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans animate-fade-in">
+      <div className="relative w-full max-w-xl max-h-[92dvh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto">
         
         {/* Modal Header */}
-        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-5 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-nerdLime">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-4 sm:px-6 py-4 sm:py-5 text-white flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-nerdLime shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-bold text-base tracking-tight">Share & Lu.ma Social Card</h3>
-              <p className="text-xs text-blue-100">Direct 1-click sharing to all social channels</p>
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm sm:text-base tracking-tight truncate">Share &amp; Lu.ma Social Card</h3>
+              <p className="text-xs text-blue-100 truncate">Direct 1-click sharing to all social channels</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 flex-1 overflow-y-auto">
           
           {/* Lu.ma-style Preview Card */}
           <div className="space-y-2">
@@ -292,17 +293,17 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({ event, onClo
           {/* Copy Link Input Bar */}
           <div className="space-y-1.5 pt-2 border-t border-slate-100">
             <label className="block text-slate-700 font-bold text-xs">Direct Shareable URL</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 readOnly
                 value={shareUrl}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none select-all"
+                className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none select-all"
               />
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+                className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all shrink-0 ${
                   copied
                     ? 'bg-emerald-600 text-white'
                     : 'bg-nerdBlue hover:bg-blue-800 text-white shadow-sm'

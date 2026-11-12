@@ -61,7 +61,7 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
   }, [countdownEvent?.startTime, countdownEvent?.endTime]);
 
   return (
-    <div className="relative overflow-hidden bg-white pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 border-b border-gray-100">
+    <div className="relative overflow-hidden bg-white pt-20 sm:pt-28 md:pt-32 pb-10 sm:pb-16 border-b border-gray-100">
       
       {/* Exact Nerds Room bg-grid with radial mask */}
       <div 
@@ -72,26 +72,26 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 text-center">
+      <div className="relative z-10 max-w-7xl mx-auto px-3.5 sm:px-6 md:px-8 text-center">
         
         {/* Exact Nerds Room Floating Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-nerdLime/20 via-nerdLime/10 to-transparent border border-nerdLime/30 backdrop-blur-sm mb-6">
-          <span className="relative flex h-2 w-2">
+        <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-nerdLime/20 via-nerdLime/10 to-transparent border border-nerdLime/30 backdrop-blur-sm mb-5 sm:mb-6 max-w-full">
+          <span className="relative flex h-2 w-2 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-nerdLime opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-nerdLime"></span>
           </span>
-          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-nerdBlue">
+          <span className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-nerdBlue truncate">
             NERDS ROOM LEAGUE • MULTI-ROUND HACK ARENA
           </span>
         </div>
 
         {/* 3-Line Iconic Main Heading */}
-        <h1 className="font-black tracking-tight leading-[0.98] mb-6">
-          <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-nerdBlue">
+        <h1 className="font-black tracking-tight leading-[0.98] mb-5 sm:mb-6">
+          <span className="block text-[1.9rem] min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-nerdBlue">
             BUILD. COMPETE.
           </span>
           <span
-            className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl bg-gradient-to-r from-nerdLime via-nerdLime to-nerdBlue bg-clip-text text-transparent my-1"
+            className="block text-[1.9rem] min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-7xl bg-gradient-to-r from-nerdLime via-nerdLime to-nerdBlue bg-clip-text text-transparent my-1"
             style={{
               textShadow: '2px 2px 0px rgba(0, 48, 143, 0.2)',
               filter: 'drop-shadow(0 0 10px rgba(155, 230, 0, 0.35))',
@@ -99,18 +99,18 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
           >
             MULTI-ROUND HACKS
           </span>
-          <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-nerdLime">
+          <span className="block text-[1.9rem] min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-nerdLime">
             SHIP THE FUTURE<span className="text-nerdBlue">.</span>
           </span>
         </h1>
 
         {/* Description */}
-        <p className="text-sm sm:text-base md:text-lg text-gray-700 max-w-2xl mx-auto leading-relaxed mb-8">
+        <p className="text-xs sm:text-base md:text-lg text-gray-700 max-w-2xl mx-auto leading-relaxed mb-7 sm:mb-8">
           The premier platform for student developers and organizers. Multi-round progression, verified digital QR passes, instant team matchmaking, and live project shipyard.
         </p>
 
         {/* CTA Buttons with Main Site Signature Shadow */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-10">
           <a
             href="#events-section"
             className="w-full sm:w-auto inline-flex items-center justify-center rounded-2xl border-2 border-nerdLime bg-gradient-to-r from-nerdLime to-nerdLime/90 text-nerdBlue text-sm sm:text-base font-black py-3 px-8 shadow-[0_6px_0_#00308F] hover:shadow-[0_4px_0_#00308F] hover:translate-y-0.5 active:translate-y-1 transition-all duration-200"
@@ -119,8 +119,8 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
             <ArrowRight className="w-4 h-4 ml-1.5" />
           </a>
 
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 border-nerdBlue bg-white text-nerdBlue font-bold text-xs shadow-sm">
-            <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
+          <div className="inline-flex flex-wrap justify-center items-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-2.5 rounded-2xl border-2 border-nerdBlue bg-white text-nerdBlue font-bold text-xs shadow-sm max-w-full">
+            <Flame className="w-4 h-4 text-orange-500 animate-pulse shrink-0" />
             {countdown.status === 'upcoming' ? (
               <>
                 <span className="font-black text-slate-800">
@@ -139,25 +139,25 @@ export const TerminalHero: React.FC<TerminalHeroProps> = ({
         </div>
 
         {/* Stats Strip matching Nerds Room metric styling */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-10">
-          <div className="bg-[#EAF2FF] border border-blue-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-nerdBlue mb-0.5">{totalHackers}+</div>
-            <div className="text-xs font-bold text-slate-700">Hackers Registered</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 max-w-4xl mx-auto mb-8 sm:mb-10">
+          <div className="bg-[#EAF2FF] border border-blue-200/60 rounded-2xl p-3 sm:p-4 text-center shadow-sm">
+            <div className="text-xl min-[400px]:text-2xl sm:text-3xl font-black text-nerdBlue mb-0.5">{totalHackers}+</div>
+            <div className="text-[11px] sm:text-xs font-bold text-slate-700">Hackers Registered</div>
           </div>
 
-          <div className="bg-[#E8F5E9] border border-emerald-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-emerald-700 mb-0.5">{eventsCount} Live</div>
-            <div className="text-xs font-bold text-slate-700">Active Challenges</div>
+          <div className="bg-[#E8F5E9] border border-emerald-200/60 rounded-2xl p-3 sm:p-4 text-center shadow-sm">
+            <div className="text-xl min-[400px]:text-2xl sm:text-3xl font-black text-emerald-700 mb-0.5">{eventsCount} Live</div>
+            <div className="text-[11px] sm:text-xs font-bold text-slate-700">Active Challenges</div>
           </div>
 
-          <div className="bg-[#FFF7E0] border border-amber-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-amber-700 mb-0.5">Multi-Round</div>
-            <div className="text-xs font-bold text-slate-700">Idea to Grand Finale</div>
+          <div className="bg-[#FFF7E0] border border-amber-200/60 rounded-2xl p-3 sm:p-4 text-center shadow-sm">
+            <div className="text-xl min-[400px]:text-2xl sm:text-3xl font-black text-amber-700 mb-0.5">Multi-Round</div>
+            <div className="text-[11px] sm:text-xs font-bold text-slate-700">Idea to Grand Finale</div>
           </div>
 
-          <div className="bg-[#FCE4EC] border border-pink-200/60 rounded-2xl p-4 text-center shadow-sm">
-            <div className="text-3xl font-black text-pink-700 mb-0.5">100% Free</div>
-            <div className="text-xs font-bold text-slate-700">Student & Community Driven</div>
+          <div className="bg-[#FCE4EC] border border-pink-200/60 rounded-2xl p-3 sm:p-4 text-center shadow-sm">
+            <div className="text-xl min-[400px]:text-2xl sm:text-3xl font-black text-pink-700 mb-0.5">100% Free</div>
+            <div className="text-[11px] sm:text-xs font-bold text-slate-700">Community Driven</div>
           </div>
         </div>
 

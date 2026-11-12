@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, Calendar, Link as LinkIcon, Trophy, Layers, ArrowRight, Upload, Image as ImageIcon } from 'lucide-react';
-import { EventRound, ImportantLink, HackEvent, EventType } from '../types';
+import React, { useState, useRef, useMemo } from 'react';
+import { X, Calendar, Trophy, ArrowRight, Upload, Image as ImageIcon, Clock, Sparkles } from 'lucide-react';
+import { HackEvent, EventType } from '../types';
 import { hackApi } from '../services/hackApi';
 
 interface CreateEventModalProps {
@@ -15,30 +15,59 @@ const PRESET_BANNERS = [
   { label: 'Builder Arena', url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80' },
 ];
 
+function computeDurationLabel(startIso: string, endIso: string): string {
+  const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+  if (Number.isNaN(diffMs) || diffMs <= 0) return 'Set end date/time after start';
+  const totalHours = Math.round(diffMs / (1000 * 60 * 60));
+  if (totalHours < 24) return `${totalHours} ${totalHours === 1 ? 'Hour' : 'Hours'}`;
+  const days = Math.floor(totalHours / 24);
+  const remHours = totalHours % 24;
+  return remHours > 0
+    ? `${days} ${days === 1 ? 'Day' : 'Days'}, ${remHours} hrs (${totalHours}h total)`
+    : `${days} ${days === 1 ? 'Day' : 'Days'} (${totalHours}h total)`;
+}
+
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onEventCreated }) => {
   const currentUser = hackApi.getCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [title, setTitle] = useState('');
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
   const [eventType, setEventType] = useState<EventType>('hackathon');
   const [venueType, setVenueType] = useState<'hybrid' | 'in-person' | 'virtual'>('hybrid');
-  const [location, setLocation] = useState('Bengaluru / Online Discord');
+  const [location, setLocation] = useState('Online / Discord');
+  const [organizerName, setOrganizerName] = useState(currentUser?.name || '');
+
   const [startDate, setStartDate] = useState(
     new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
   );
+  const [startTimeClock, setStartTimeClock] = useState('09:00');
   const [endDate, setEndDate] = useState(
     new Date(Date.now() + 86400000 * 9).toISOString().split('T')[0]
   );
-  const [prizeAmount, setPrizeAmount] = useState('$5,000');
-  const [tagsStr, setTagsStr] = useState('AI Agents, Rust, Hardware');
-  const [organizerName, setOrganizerName] = useState(currentUser?.name || '');
-  const [organizerOrg, setOrganizerOrg] = useState(currentUser?.college || 'Nerds Room Community');
+  const [endTimeClock, setEndTimeClock] = useState('18:00');
+
   const [coverUrl, setCoverUrl] = useState(PRESET_BANNERS[0].url);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [visibility, setVisibility] = useState<'approved' | 'private'>('approved');
+  const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const startTimeIso = useMemo(() => {
+    const dt = new Date(`${startDate}T${startTimeClock || '09:00'}:00`);
+    return Number.isNaN(dt.getTime()) ? new Date().toISOString() : dt.toISOString();
+  }, [startDate, startTimeClock]);
+
+  const endTimeIso = useMemo(() => {
+    const dt = new Date(`${endDate}T${endTimeClock || '18:00'}:00`);
+    return Number.isNaN(dt.getTime()) ? new Date(Date.now() + 86400000 * 2).toISOString() : dt.toISOString();
+  }, [endDate, endTimeClock]);
+
+  const durationSummary = useMemo(
+    () => computeDurationLabel(startTimeIso, endTimeIso),
+    [startTimeIso, endTimeIso]
+  );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,146 +83,92 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
     }
   };
 
-  // Rounds State
-  const [rounds, setRounds] = useState<EventRound[]>([
-    {
-      id: 'rnd_' + Date.now(),
-      roundNumber: 1,
-      title: 'Round 1: Idea Submission & Registration',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
-      description: 'Submit your team members and abstract pitch deck.',
-      status: 'active',
-      submissionType: 'deck'
-    },
-    {
-      id: 'rnd_' + (Date.now() + 1),
-      roundNumber: 2,
-      title: 'Round 2: Prototype Code Submission',
-      startDate: new Date(Date.now() + 86400000 * 8).toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 86400000 * 15).toISOString().split('T')[0],
-      description: 'Submit public GitHub repo and 2-minute video demo.',
-      status: 'upcoming',
-      submissionType: 'github'
-    }
-  ]);
-
-  // Important Links State
-  const [links, setLinks] = useState<ImportantLink[]>([
-    { id: 'lnk_1', title: 'Discord Community', url: 'https://discord.gg/nerdsroom', type: 'discord' },
-    { id: 'lnk_2', title: 'Problem Statements & Rulebook', url: 'https://notion.so/nerdsroom', type: 'rulebook' }
-  ]);
-
-  const [newLinkTitle, setNewLinkTitle] = useState('');
-  const [newLinkUrl, setNewLinkUrl] = useState('');
-
-  const addRound = () => {
-    const nextNum = rounds.length + 1;
-    setRounds([
-      ...rounds,
-      {
-        id: 'rnd_' + Date.now(),
-        roundNumber: nextNum,
-        title: `Round ${nextNum}: Final Demo & Presentation`,
-        startDate: new Date(Date.now() + 86400000 * 16).toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 86400000 * 20).toISOString().split('T')[0],
-        description: 'Offline presentation or live Discord stage pitch.',
-        status: 'upcoming',
-        submissionType: 'offline'
-      }
-    ]);
-  };
-
-  const removeRound = (id: string) => {
-    setRounds(rounds.filter(r => r.id !== id));
-  };
-
-  const addLink = () => {
-    if (!newLinkTitle || !newLinkUrl) return;
-    setLinks([
-      ...links,
-      {
-        id: 'lnk_' + Date.now(),
-        title: newLinkTitle,
-        url: newLinkUrl,
-        type: 'custom'
-      }
-    ]);
-    setNewLinkTitle('');
-    setNewLinkUrl('');
-  };
-
-  const removeLink = (id: string) => {
-    setLinks(links.filter(l => l.id !== id));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || submitting) return;
+    setErrorMsg('');
+
+    if (new Date(endTimeIso).getTime() <= new Date(startTimeIso).getTime()) {
+      setErrorMsg('End date & time must be after the start date & time.');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
-      const prizes = prizeAmount ? [{ title: 'Main Prize Pool', amount: prizeAmount, description: 'Cash bounties and grants' }] : [];
-      const startTimeIso = startDate ? new Date(`${startDate}T09:00:00.000Z`).toISOString() : new Date().toISOString();
-      const endTimeIso = endDate ? new Date(`${endDate}T18:00:00.000Z`).toISOString() : new Date(Date.now() + 86400000 * 2).toISOString();
-
       const newEvent = await hackApi.createEvent({
         title: title.trim(),
-        tagline: tagline.trim() || 'A Nerds Room Event',
-        description: description.trim() || 'Join us for an exciting hackathon with intense building and great prizes.',
+        tagline: tagline.trim() || 'Build, ship, and compete at Nerds Room League.',
+        description:
+          description.trim() ||
+          'Join fellow builders to collaborate, ship projects, and compete across event rounds.',
         eventType,
         venueType,
         location: location.trim() || 'Online / Discord',
         startTime: startTimeIso,
         endTime: endTimeIso,
         organizerName: organizerName.trim() || currentUser?.name || 'Community Organizer',
-        organizerOrg: organizerOrg.trim() || 'Nerds Room Community',
-        coverUrl: coverUrl.trim(),
-        approvalStatus: visibility,
-        tags,
-        prizes,
-        rounds,
-        importantLinks: links
+        organizerOrg: currentUser?.college || 'Nerds Room Community',
+        coverUrl: coverUrl.trim() || PRESET_BANNERS[0].url,
+        approvalStatus: 'approved',
+        tags: [eventType === 'hackathon' ? 'Hackathon' : eventType, 'NerdsRoom'],
+        prizes: [],
+        rounds: [
+          {
+            id: 'rnd_' + Date.now(),
+            roundNumber: 1,
+            title: 'Round 1: Main Submission & Demos',
+            startDate,
+            endDate,
+            description: 'Build and submit your project before the event deadline.',
+            status: 'active',
+            submissionType: 'github',
+          },
+        ],
+        importantLinks: [],
       });
 
       onEventCreated(newEvent);
       onClose();
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Unable to create event right now.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col">
-        
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[92dvh] flex flex-col">
         {/* Header */}
-        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
-          <div>
-            <div className="flex items-center gap-1.5 font-black text-lg tracking-tight">
-              <span>Create Event & Rounds</span>
-            </div>
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-4 sm:px-6 py-4 text-white flex items-center justify-between gap-3 shadow-sm">
+          <div className="min-w-0">
+            <div className="font-black text-base sm:text-lg tracking-tight">Host a New Event</div>
             <p className="text-xs text-blue-100 mt-0.5">
-              Host a new hackathon, workshop, or meetup with custom rounds & links.
+              Quick setup: basic details, duration, and cover banner.
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs font-sans">
-          
-          {/* Basic Details */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 border-b pb-2 flex items-center gap-1.5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs font-sans">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* Section 1: Basic Event Details */}
+          <div className="space-y-3.5">
+            <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
               <Trophy className="w-4 h-4 text-nerdBlue" />
-              <span>Event Details</span>
+              <span>1. Event Basic Details</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -204,8 +179,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. AI Agents & Cybernetics Sprint"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  placeholder="e.g. AI Agents Buildathon"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none"
                 />
               </div>
 
@@ -214,7 +189,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value as EventType)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none font-bold"
                 >
                   <option value="hackathon">Hackathon</option>
                   <option value="ideathon">Ideathon</option>
@@ -225,34 +200,34 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
             </div>
 
             <div>
-              <label className="block text-slate-700 font-bold mb-1">Tagline / Short Pitch</label>
+              <label className="block text-slate-700 font-bold mb-1">Short Tagline</label>
               <input
                 type="text"
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
-                placeholder="e.g. 36 hours of local agent development and compiler hacking."
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                placeholder="One line describing what builders will do"
+                className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 font-bold mb-1">About Event / Detailed Description</label>
+              <label className="block text-slate-700 font-bold mb-1">Event Description</label>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe tracks, judging criteria, problem statements, and rules..."
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                placeholder="Share overview, eligibility, and what attendees should expect..."
+                className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Event Format</label>
+                <label className="block text-slate-700 font-bold mb-1">Format</label>
                 <select
                   value={venueType}
                   onChange={(e) => setVenueType(e.target.value as 'hybrid' | 'in-person' | 'virtual')}
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none font-bold"
                 >
                   <option value="hybrid">Hybrid</option>
                   <option value="in-person">In-Person</option>
@@ -260,310 +235,173 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onE
                 </select>
               </div>
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
                 <label className="block text-slate-700 font-bold mb-1">Venue / City</label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Bengaluru / Online Discord"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  placeholder="e.g. Bengaluru / Online"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none"
                 />
               </div>
-
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Total Prize Bounty</label>
-                <input
-                  type="text"
-                  value={prizeAmount}
-                  onChange={(e) => setPrizeAmount(e.target.value)}
-                  placeholder="e.g. $10,000 or ₹2,00,000"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold text-nerdBlue"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-bold mb-1">Tech Tags (comma separated)</label>
-              <input
-                type="text"
-                value={tagsStr}
-                onChange={(e) => setTagsStr(e.target.value)}
-                placeholder="AI Agents, Rust, Linux, Web3"
-                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
-              />
-            </div>
-
-            {/* Organizer Details & Visibility (Crucial Feature) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Organizer Name *</label>
+                <label className="block text-slate-700 font-bold mb-1">Host Name *</label>
                 <input
                   type="text"
                   required
                   value={organizerName}
                   onChange={(e) => setOrganizerName(e.target.value)}
-                  placeholder="e.g. Aditya Sharma or Shubhi Mathur"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  placeholder="Your name"
+                  className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2.5 text-sm sm:text-xs text-slate-900 focus:outline-none"
                 />
               </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Organizer Organization / Chapter</label>
-                <input
-                  type="text"
-                  value={organizerOrg}
-                  onChange={(e) => setOrganizerOrg(e.target.value)}
-                  placeholder="e.g. Nerds Room Campus Lead or MITS Chapter"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
-                />
-              </div>
+          {/* Section 2: Duration & Schedule */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-nerdBlue" />
+                <span>2. Duration & Schedule</span>
+              </h3>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-nerdBlue border border-blue-200 text-[11px] font-bold">
+                <Clock className="w-3 h-3" />
+                <span>{durationSummary}</span>
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-700 font-bold flex items-center gap-1">
-                    <ImageIcon className="w-3.5 h-3.5 text-nerdBlue" />
-                    <span>Cover Banner (Cloudinary CDN)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingCover}
-                    className="inline-flex items-center gap-1 text-[10px] font-black text-nerdBlue bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <Upload className="w-3 h-3" />
-                    <span>{uploadingCover ? 'Uploading...' : 'Upload Image'}</span>
-                  </button>
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <span className="block text-[11px] font-black uppercase text-slate-500">Starts</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full min-w-0 bg-white border border-slate-200 focus:border-nerdBlue rounded-xl px-2.5 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={startTimeClock}
+                    onChange={(e) => setStartTimeClock(e.target.value)}
+                    className="w-full min-w-0 bg-white border border-slate-200 focus:border-nerdBlue rounded-xl px-2.5 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
                   />
                 </div>
-                <input
-                  type="url"
-                  value={coverUrl}
-                  onChange={(e) => setCoverUrl(e.target.value)}
-                  placeholder="https://res.cloudinary.com/hanndfsz/... or image URL"
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none text-[11px]"
-                />
-                {coverUrl && (
-                  <div className="mt-2 relative h-16 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                    <img src={coverUrl} alt="Banner Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {PRESET_BANNERS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => {
-                        setCoverUrl(p.url);
-                        setUploadError('');
-                      }}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                        coverUrl === p.url
-                          ? 'bg-nerdBlue text-white border-nerdBlue'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-nerdBlue'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                {uploadError && (
-                  <p className="text-[10px] text-amber-700 font-bold mt-1 leading-snug">{uploadError}</p>
-                )}
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Event Visibility</label>
-                <select
-                  value={visibility}
-                  onChange={(e) => setVisibility(e.target.value as 'approved' | 'private')}
-                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-bold"
-                >
-                  <option value="approved">🌍 Public (Approved & Live on Website)</option>
-                  <option value="private">🔒 Private (Access via Secret Link Only)</option>
-                </select>
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <span className="block text-[11px] font-black uppercase text-slate-500">Ends</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    required
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full min-w-0 bg-white border border-slate-200 focus:border-nerdBlue rounded-xl px-2.5 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={endTimeClock}
+                    onChange={(e) => setEndTimeClock(e.target.value)}
+                    className="w-full min-w-0 bg-white border border-slate-200 focus:border-nerdBlue rounded-xl px-2.5 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Multi-Rounds Builder */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
+          {/* Section 3: Banner */}
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-nerdBlue" />
-                <span>Event Rounds / Stages ({rounds.length})</span>
+                <ImageIcon className="w-4 h-4 text-nerdBlue" />
+                <span>3. Event Cover Banner</span>
               </h3>
               <button
                 type="button"
-                onClick={addRound}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-nerdBlue hover:bg-blue-100 font-bold text-[11px] transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingCover}
+                className="inline-flex items-center gap-1 text-[11px] font-black text-nerdBlue bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Round</span>
+                <Upload className="w-3.5 h-3.5" />
+                <span>{uploadingCover ? 'Uploading...' : 'Upload Banner Image'}</span>
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
             </div>
 
-            <div className="space-y-2.5">
-              {rounds.map((round, idx) => (
-                <div key={round.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 text-xs">
-                      Round {idx + 1}: {round.title}
-                    </span>
-                    {rounds.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRound(round.id)}
-                        className="text-red-400 hover:text-red-600 p-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={round.title}
-                    onChange={(e) => {
-                      const updated = [...rounds];
-                      updated[idx] = { ...updated[idx], title: e.target.value };
-                      setRounds(updated);
-                    }}
-                    placeholder="Round Title"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold">Start Date:</span>
-                      <input
-                        type="date"
-                        value={round.startDate}
-                        onChange={(e) => {
-                          const updated = [...rounds];
-                          updated[idx] = { ...updated[idx], startDate: e.target.value };
-                          setRounds(updated);
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px]"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold">Deadline:</span>
-                      <input
-                        type="date"
-                        value={round.endDate}
-                        onChange={(e) => {
-                          const updated = [...rounds];
-                          updated[idx] = { ...updated[idx], endDate: e.target.value };
-                          setRounds(updated);
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px]"
-                      />
-                    </div>
-                  </div>
-                </div>
+            {coverUrl && (
+              <div className="h-28 sm:h-32 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
+                <img src={coverUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            <input
+              type="url"
+              value={coverUrl}
+              onChange={(e) => setCoverUrl(e.target.value)}
+              placeholder="Paste image URL or choose a preset below"
+              className="w-full min-w-0 bg-slate-50 border border-slate-200 focus:bg-white focus:border-nerdBlue rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none"
+            />
+
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_BANNERS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    setCoverUrl(p.url);
+                    setUploadError('');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
+                    coverUrl === p.url
+                      ? 'bg-nerdBlue text-white border-nerdBlue'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-nerdBlue'
+                  }`}
+                >
+                  {p.label}
+                </button>
               ))}
             </div>
+
+            {uploadError && (
+              <p className="text-[11px] text-amber-700 font-bold leading-snug">{uploadError}</p>
+            )}
           </div>
 
-          {/* Important Links Builder */}
-          <div className="space-y-3">
-            <h3 className="font-bold text-sm text-slate-900 border-b pb-2 flex items-center gap-1.5">
-              <LinkIcon className="w-4 h-4 text-nerdBlue" />
-              <span>Important Links & Resources ({links.length})</span>
-            </h3>
-
-            <div className="space-y-2">
-              {links.map((link) => (
-                <div key={link.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <div>
-                    <span className="font-bold text-slate-800 block text-xs">{link.title}</span>
-                    <span className="text-[10px] text-slate-500 truncate block max-w-sm">{link.url}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeLink(link.id)}
-                    className="text-slate-400 hover:text-red-500 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-
-              {/* Add New Link Bar */}
-              <div className="flex gap-2 pt-1">
-                <input
-                  type="text"
-                  value={newLinkTitle}
-                  onChange={(e) => setNewLinkTitle(e.target.value)}
-                  placeholder="Link Title (e.g. WhatsApp Group)"
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
-                />
-                <input
-                  type="url"
-                  value={newLinkUrl}
-                  onChange={(e) => setNewLinkUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={addLink}
-                  className="px-3 py-1.5 rounded-lg bg-nerdBlue text-white font-bold text-xs"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
+          <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-100 text-[11px] text-slate-600 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-nerdBlue shrink-0 mt-0.5" />
+            <span>
+              After publishing, open <strong>Organizer Panel → Edit Event</strong> anytime to customize the event URL slug, edit round titles & stages, prizes, and resource links.
+            </span>
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
+              className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-6 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <span>{submitting ? 'Publishing Event...' : 'Publish Event'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-
         </form>
-
       </div>
     </div>
   );

@@ -5,13 +5,15 @@ import { SocialShareModal } from './SocialShareModal';
 import { 
   ArrowLeft, Calendar, MapPin, Trophy, Users, 
   Clock, Shield, ExternalLink, ThumbsUp, Plus, Github, MessageSquare, Rocket,
-  Layers, CheckCircle2, AlertCircle, Link as LinkIcon, Share2, Sparkles, UserCheck, Lock, Ticket
+  Layers, CheckCircle2, AlertCircle, Link as LinkIcon, Share2, Sparkles, UserCheck, Lock, Ticket, Edit3
 } from 'lucide-react';
 
 interface HackEventDetailsProps {
   event: HackEvent;
   refreshKey?: number;
   existingPass?: HackerRSVP | null;
+  canEdit?: boolean;
+  onEditClick?: () => void;
   onViewPass?: (rsvp: HackerRSVP) => void;
   onBack: () => void;
   onRsvpClick: () => void;
@@ -23,6 +25,8 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
   event,
   refreshKey = 0,
   existingPass,
+  canEdit = false,
+  onEditClick,
   onViewPass,
   onBack,
   onRsvpClick,
@@ -62,55 +66,67 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-24 pt-16 sm:pt-20">
       
-      {/* Top Banner Cover */}
-      <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-slate-900 border-b border-slate-200">
+      {/* Top Banner Cover (Non-overlapping responsive stack) */}
+      <div className="relative min-h-[270px] sm:min-h-[320px] w-full overflow-hidden bg-slate-900 border-b border-slate-200 flex flex-col justify-between p-4 sm:p-8">
         <img
           src={event.coverUrl}
           alt={event.title}
-          className="w-full h-full object-cover opacity-60"
+          className="absolute inset-0 w-full h-full object-cover opacity-60"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/55 to-slate-950/25" />
 
-        {/* Top Controls: Back & Share */}
-        <div className="absolute top-6 left-4 sm:left-8 right-4 sm:right-8 z-20 flex items-center justify-between">
+        {/* Top Controls: Back & Share / Edit */}
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 max-w-6xl w-full mx-auto">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-nerdBlue font-black text-xs transition-transform hover:scale-105 shadow-md"
+            className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-white text-nerdBlue font-black text-xs transition-transform hover:scale-105 shadow-md"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Events</span>
+            <span>Back</span>
+            <span className="hidden sm:inline">to Events</span>
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {event.approvalStatus === 'private' && (
-              <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-md">
+              <span className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] sm:text-xs shadow-md">
                 <Lock className="w-3.5 h-3.5" />
-                <span>Private Event</span>
+                <span>Private</span>
               </span>
+            )}
+            {canEdit && onEditClick && (
+              <button
+                type="button"
+                onClick={onEditClick}
+                className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-white text-nerdBlue font-black text-xs transition-transform hover:scale-105 shadow-md"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit Event</span>
+              </button>
             )}
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-nerdLime hover:bg-lime-400 text-nerdDark font-black text-xs transition-transform hover:scale-105 shadow-md"
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-nerdLime hover:bg-lime-400 text-nerdDark font-black text-xs transition-transform hover:scale-105 shadow-md"
             >
               <Share2 className="w-3.5 h-3.5" />
-              <span>Share & Lu.ma Card</span>
+              <span>Share</span>
+              <span className="hidden sm:inline">&amp; Lu.ma Card</span>
             </button>
           </div>
         </div>
 
         {/* Banner Details */}
-        <div className="absolute bottom-6 left-4 sm:left-8 right-4 sm:right-8 max-w-5xl text-white">
-          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-bold">
-            <span className="px-3 py-1 rounded-full bg-nerdLime text-nerdDark uppercase tracking-wider">
+        <div className="relative z-10 max-w-6xl w-full mx-auto text-white pt-6 sm:pt-8">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2 text-[11px] sm:text-xs font-bold">
+            <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-nerdLime text-nerdDark uppercase tracking-wider">
               {event.eventType}
             </span>
-            <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white">
+            <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-white/20 backdrop-blur-md text-white">
               {event.venueType.toUpperCase()}
             </span>
-            <span className="text-slate-300">• {event.rsvpCount || 0} Registered Hackers</span>
+            <span className="text-slate-200">• {event.rsvpCount || 0} Hackers</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight mb-1.5 sm:mb-2 leading-tight">
             {event.title}
           </h1>
 
@@ -121,38 +137,38 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-5 sm:pt-6">
         
         {/* Quick Info Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border border-slate-200 rounded-2xl p-4 text-xs mb-8 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 bg-white border border-slate-200 rounded-2xl p-4 text-xs mb-6 sm:mb-8 shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
-              <div className="text-slate-400 text-[10px] font-bold uppercase">DATE & TIME</div>
-              <div className="font-bold text-slate-900 text-sm">{startDate}</div>
+            <div className="min-w-0">
+              <div className="text-slate-400 text-[10px] font-bold uppercase">DATE &amp; TIME</div>
+              <div className="font-bold text-slate-900 text-sm truncate">{startDate}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-nerdBlue shrink-0">
               <MapPin className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="text-slate-400 text-[10px] font-bold uppercase">VENUE</div>
-              <div className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{event.location}</div>
+              <div className="font-bold text-slate-900 text-sm truncate">{event.location}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-lime-50 border border-lime-100 flex items-center justify-center text-nerdDark">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-lime-50 border border-lime-100 flex items-center justify-center text-nerdDark shrink-0">
               <Trophy className="w-5 h-5 text-nerdDark" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-slate-400 text-[10px] font-bold uppercase">PRIZE POOL</div>
-              <div className="font-black text-nerdBlue text-sm">
-                {event.prizes.length > 0 ? event.prizes[0].amount : 'Free Swag & Certificate'}
+              <div className="font-black text-nerdBlue text-sm truncate">
+                {event.prizes.length > 0 ? event.prizes[0].amount : 'Swag & Certificate'}
               </div>
             </div>
           </div>
@@ -162,19 +178,19 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6 text-xs font-bold overflow-x-auto">
           <button
             onClick={() => setActiveSubTab('rounds')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            className={`whitespace-nowrap shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all ${
               activeSubTab === 'rounds'
                 ? 'bg-nerdBlue text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
             }`}
           >
             <Layers className="w-4 h-4 text-nerdLime" />
-            <span>Event Rounds & Overview ({rounds.length})</span>
+            <span>Rounds &amp; Overview ({rounds.length})</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('bounties')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            className={`whitespace-nowrap shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all ${
               activeSubTab === 'bounties'
                 ? 'bg-nerdBlue text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
@@ -186,7 +202,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
 
           <button
             onClick={() => setActiveSubTab('teams')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            className={`whitespace-nowrap shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all ${
               activeSubTab === 'teams'
                 ? 'bg-nerdBlue text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
@@ -198,7 +214,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
 
           <button
             onClick={() => setActiveSubTab('shipyard')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            className={`whitespace-nowrap shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all ${
               activeSubTab === 'shipyard'
                 ? 'bg-nerdBlue text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 bg-white border border-slate-200'
@@ -234,19 +250,19 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
               </div>
 
               {/* Rounds & Stages (Crucial Feature) */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-nerdBlue" />
-                      <span>Rounds & Progression Stages</span>
+                      <Layers className="w-5 h-5 text-nerdBlue shrink-0" />
+                      <span>Rounds &amp; Progression Stages</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Follow each round deadline to progress to the next stage.
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-nerdBlue bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
-                    {rounds.length} Total Rounds
+                  <span className="text-xs font-bold text-nerdBlue bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 shrink-0">
+                    {rounds.length} {rounds.length === 1 ? 'Round' : 'Total Rounds'}
                   </span>
                 </div>
 
@@ -256,27 +272,33 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
                       key={round.id || idx}
                       className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-nerdBlue text-white font-bold text-xs flex items-center justify-center">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-nerdBlue text-white font-bold text-xs flex items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
-                          <h4 className="font-bold text-slate-900 text-sm">{round.title}</h4>
+                          <h4 className="font-bold text-slate-900 text-sm break-words">{round.title}</h4>
                         </div>
-                        <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                        <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full shrink-0 ${
                           round.status === 'active'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : 'bg-slate-200 text-slate-600'
+                            : round.status === 'completed'
+                            ? 'bg-slate-200 text-slate-700'
+                            : 'bg-blue-50 text-nerdBlue border border-blue-200'
                         }`}>
-                          {round.status === 'active' ? '● Active Now' : 'Upcoming'}
+                          {round.status === 'active'
+                            ? '● Active Now'
+                            : round.status === 'completed'
+                            ? 'Completed'
+                            : 'Upcoming'}
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-600 mb-3 pl-8">
+                      <p className="text-xs text-slate-600 mb-3 pl-0 sm:pl-8">
                         {round.description}
                       </p>
 
-                      <div className="pl-8 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2 pt-2 border-t border-slate-200/60">
+                      <div className="pl-0 sm:pl-8 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2 pt-2 border-t border-slate-200/60">
                         <div className="flex items-center gap-3">
                           <span>Start: <strong>{round.startDate}</strong></span>
                           <span>Deadline: <strong className="text-slate-900">{round.endDate}</strong></span>
@@ -347,13 +369,23 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
                     </div>
                   </div>
                 </div>
+                {canEdit && onEditClick && (
+                  <button
+                    type="button"
+                    onClick={onEditClick}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 hover:bg-nerdBlue text-nerdBlue hover:text-white border border-blue-200 font-bold text-xs transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Event / URL Slug &amp; Rounds</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowShareModal(true)}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 hover:bg-nerdBlue hover:text-white text-slate-800 font-bold text-xs transition-colors"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Event & Lu.ma Card</span>
+                  <span>Share Event &amp; Lu.ma Card</span>
                 </button>
               </div>
 
@@ -429,7 +461,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
         {/* Tab 3: Teams / Matchmaking */}
         {activeSubTab === 'teams' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
               <div>
                 <h4 className="text-base font-bold text-slate-900">Looking for Teammates?</h4>
                 <p className="text-slate-500 text-xs mt-0.5">
@@ -438,7 +470,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
               </div>
               <button
                 onClick={onCreateTeamClick}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
               >
                 <Plus className="w-4 h-4 text-nerdLime" />
                 <span>Post Team Listing</span>
@@ -495,7 +527,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
         {/* Tab 4: Shipyard Demos */}
         {activeSubTab === 'shipyard' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
               <div>
                 <h4 className="text-base font-bold text-slate-900">Project Shipyard</h4>
                 <p className="text-slate-500 text-xs mt-0.5">
@@ -504,7 +536,7 @@ export const HackEventDetails: React.FC<HackEventDetailsProps> = ({
               </div>
               <button
                 onClick={onSubmitProjectClick}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-nerdBlue text-white font-bold text-xs hover:bg-blue-800 shadow-md transition-all whitespace-nowrap self-start sm:self-auto"
               >
                 <Plus className="w-4 h-4 text-nerdLime" />
                 <span>Submit Your Hack</span>

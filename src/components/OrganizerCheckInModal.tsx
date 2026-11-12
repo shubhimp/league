@@ -33,31 +33,31 @@ export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ on
     }
   };
 
-  const handleQuickFill = (sampleCode: string) => {
-    setCode(sampleCode);
-  };
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[90vh] flex flex-col text-xs">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/70 backdrop-blur-md overflow-y-auto font-sans">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[92dvh] flex flex-col text-xs">
         
         {/* Header */}
-        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-6 py-4 text-white flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-nerdLime" />
-            <span className="text-sm font-black tracking-tight uppercase">
+        <div className="shrink-0 bg-gradient-to-r from-nerdDark via-nerdBlue to-blue-700 px-4 sm:px-6 py-4 text-white flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <QrCode className="w-5 h-5 text-nerdLime shrink-0" />
+            <span className="text-sm font-black tracking-tight uppercase truncate">
               Organizer Entrance Check-in
             </span>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center shrink-0"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto">
           <p className="text-slate-600 text-xs">
-            Scan attendee ticket pass QR or enter ticket code (e.g. <code className="text-nerdBlue font-bold bg-blue-50 px-1.5 py-0.5 rounded">NR-XXXXX</code>) to admit them.
+            Enter or scan an attendee&apos;s verified ticket pass code (format <code className="text-nerdBlue font-bold bg-blue-50 px-1.5 py-0.5 rounded">NR-XXXXX</code>) to admit them.
           </p>
 
           {/* Form */}
@@ -81,21 +81,6 @@ export const OrganizerCheckInModal: React.FC<OrganizerCheckInModalProps> = ({ on
               {loading ? 'Verifying Ticket on Database...' : 'Verify Ticket & Admit'}
             </button>
           </form>
-
-          {/* Quick Demo Fill */}
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl">
-            <span className="text-[10px] text-slate-500 block mb-1.5 font-bold uppercase tracking-wider">Quick Test Sample Pass:</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('NR-A89F2')}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold"
-              >
-                NR-A89F2 (Demo Ticket)
-              </button>
-              <span className="text-[10px] text-slate-400">Or enter any newly RSVPed pass code</span>
-            </div>
-          </div>
 
           {/* Result Banner */}
           {result && (
