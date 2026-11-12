@@ -6,7 +6,7 @@ import { CloudStatusModal } from './CloudStatusModal';
 import { 
   ShieldAlert, CheckCircle2, Lock, XCircle, Star, ExternalLink, 
   Search, Users, Layers, Award, Sparkles, KeyRound, Download, 
-  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck, Copy, Trash2, Edit3, Globe, Cloud, Database, RefreshCw
+  Check, LogOut, ShieldCheck, AlertCircle, Filter, Eye, UserCheck, Copy, Trash2, Edit3, Globe, Cloud, Database, RefreshCw, UserPlus, Mail, Building2, X
 } from 'lucide-react';
 
 interface MasterAdminDashboardProps {
@@ -45,6 +45,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'events' | 'attendees' | 'roles' | 'security'>('events');
   const [editingEvent, setEditingEvent] = useState<HackEvent | null>(null);
+  const [managingAdminsEvent, setManagingAdminsEvent] = useState<HackEvent | null>(null);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [selectedProfileEmail, setSelectedProfileEmail] = useState('');
+  const [savingAdmins, setSavingAdmins] = useState(false);
+  const [adminSaveMsg, setAdminSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [cloudHealth, setCloudHealth] = useState<InfrastructureHealth | null>(null);
   const [cloudStatusOpen, setCloudStatusOpen] = useState(false);
   const [whiteLabelGoogleLive, setWhiteLabelGoogleLive] = useState<boolean | null>(null);
@@ -147,6 +152,92 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     navigator.clipboard.writeText(url);
     setCopiedEventId(evt.id);
     setTimeout(() => setCopiedEventId(null), 2000);
+  };
+
+  const findOrganizerProfile = (evt: HackEvent): UserAccount | undefined => {
+    const contactEmail = (evt.organizerContact || '').trim().toLowerCase();
+    return profiles.find(
+      (p) =>
+        (evt.organizerId && p.id === evt.organizerId) ||
+        (contactEmail && p.email.trim().toLowerCase() === contactEmail)
+    );
+  };
+
+  const openManageAdminsModal = (evt: HackEvent) => {
+    setManagingAdminsEvent(evt);
+    setNewAdminEmail('');
+    setSelectedProfileEmail('');
+    setAdminSaveMsg(null);
+  };
+
+  const persistEventCoAdmins = async (evt: HackEvent, nextList: string[], successMsg: string) => {
+    setSavingAdmins(true);
+    setAdminSaveMsg(null);
+    const res = await hackApi.updateEventCoAdmins(evt.id, nextList);
+    setSavingAdmins(false);
+
+    if (res.error) {
+      setAdminSaveMsg({ type: 'error', text: res.error });
+      return;
+    }
+
+    if (res.event) {
+      const updatedEvent = res.event;
+      setEvents((prev) => prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)));
+      setAllAttendees((prev) =>
+        prev.map((item) => (item.rsvp.eventId === updatedEvent.id ? { ...item, event: updatedEvent } : item))
+      );
+      setManagingAdminsEvent(updatedEvent);
+      setAdminSaveMsg({ type: 'success', text: successMsg });
+      onDataMutated?.();
+      onEventUpdated?.(updatedEvent);
+    }
+  };
+
+  const handleAddCoAdminEmail = async (rawEmail: string) => {
+    if (!managingAdminsEvent) return;
+    const cleanEmail = rawEmail.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setAdminSaveMsg({ type: 'error', text: 'Enter a valid email address (e.g. lead@gmail.com).' });
+      return;
+    }
+    const primaryEmail = (
+      managingAdminsEvent.organizerContact ||
+      findOrganizerProfile(managingAdminsEvent)?.email ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+    if (primaryEmail && cleanEmail === primaryEmail) {
+      setAdminSaveMsg({ type: 'error', text: 'This user is already the primary organizer for this event.' });
+      return;
+    }
+
+    const existing = managingAdminsEvent.coAdmins || [];
+    if (existing.includes(cleanEmail)) {
+      setAdminSaveMsg({ type: 'error', text: `${cleanEmail} already has admin access to this event.` });
+      return;
+    }
+
+    await persistEventCoAdmins(
+      managingAdminsEvent,
+      [...existing, cleanEmail],
+      `Added ${cleanEmail} as event admin — synced to Supabase.`
+    );
+    setNewAdminEmail('');
+    setSelectedProfileEmail('');
+  };
+
+  const handleRemoveCoAdminEmail = async (emailToRemove: string) => {
+    if (!managingAdminsEvent) return;
+    const existing = managingAdminsEvent.coAdmins || [];
+    const next = existing.filter((e) => e.toLowerCase() !== emailToRemove.toLowerCase());
+    await persistEventCoAdmins(
+      managingAdminsEvent,
+      next,
+      `Removed ${emailToRemove} from event admins.`
+    );
   };
 
   const handleProfileRoleChange = async (profileId: string, newRole: UserRole) => {
@@ -290,9 +381,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   // ---------------------------------------------------------------------------
   // AUTHENTICATED MASTER ADMIN CONSOLE
   // ---------------------------------------------------------------------------
-  const filteredEvents = events.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.organizerName.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredEvents = events.filter((e) => {
+    const q = searchQuery.toLowerCase().trim();
+    const orgProfile = findOrganizerProfile(e);
+    const matchesSearch =
+      !q ||
+      e.title.toLowerCase().includes(q) ||
+      e.slug.toLowerCase().includes(q) ||
+      e.organizerName.toLowerCase().includes(q) ||
+      (e.organizerOrg || '').toLowerCase().includes(q) ||
+      (e.organizerContact || '').toLowerCase().includes(q) ||
+      (e.organizerId || '').toLowerCase().includes(q) ||
+      (orgProfile?.email || '').toLowerCase().includes(q) ||
+      (e.coAdmins || []).some((adminEmail) => adminEmail.toLowerCase().includes(q));
     const matchesStatus = filterStatus === 'all' || e.approvalStatus === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -465,7 +566,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search event title or organizer..."
+                placeholder="Search event, slug, organizer email, or admin..."
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm sm:text-xs rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-nerdBlue"
               />
             </div>
@@ -504,88 +605,144 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <>
               {/* Mobile Event Cards */}
               <div className="md:hidden space-y-3">
-                {filteredEvents.map((evt) => (
-                  <div key={evt.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3 text-xs">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-black text-slate-900 text-sm truncate">{evt.title}</div>
-                        <div className="font-mono text-[11px] text-nerdBlue truncate">/e/{evt.slug}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          {evt.eventType.toUpperCase()} • {evt.rsvpCount || 0} RSVPs • {evt.rounds?.length || 1} Rounds
+                {filteredEvents.map((evt) => {
+                  const orgProfile = findOrganizerProfile(evt);
+                  const orgEmail = evt.organizerContact || orgProfile?.email || '';
+                  const coAdmins = evt.coAdmins || [];
+
+                  return (
+                    <div key={evt.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3 text-xs">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-900 text-sm truncate">{evt.title}</div>
+                          <div className="font-mono text-[11px] text-nerdBlue truncate">/e/{evt.slug}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            {evt.eventType.toUpperCase()} • {evt.rsvpCount || 0} RSVPs • {evt.rounds?.length || 1} Rounds
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(evt)}
-                        className="p-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 shrink-0"
-                        title="Delete Event"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2">
-                      <select
-                        value={evt.approvalStatus}
-                        onChange={(e) => handleStatusChange(evt.id, e.target.value as EventApprovalStatus)}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold border ${
-                          evt.approvalStatus === 'approved'
-                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                            : evt.approvalStatus === 'private'
-                            ? 'bg-amber-50 border-amber-300 text-amber-800'
-                            : 'bg-red-50 border-red-300 text-red-800'
-                        }`}
-                      >
-                        <option value="approved">Approved (Live on Site)</option>
-                        <option value="private">Private (Link Only)</option>
-                        <option value="rejected">Rejected (Hidden)</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditingEvent(evt)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-nerdBlue font-bold"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Edit / Slug &amp; Rounds</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFeatured(evt.id, evt.isFeatured)}
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold ${
-                          evt.isFeatured
-                            ? 'bg-amber-100 border-amber-300 text-amber-900'
-                            : 'bg-white border-slate-200 text-slate-500'
-                        }`}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${evt.isFeatured ? 'fill-amber-500 text-amber-500' : ''}`} />
-                        <span>{evt.isFeatured ? 'Featured' : 'Feature'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onInspectEvent(evt)}
-                        className="px-3 py-1.5 rounded-xl bg-nerdBlue text-white font-bold ml-auto"
-                      >
-                        Inspect
-                      </button>
-
-                      {evt.approvalStatus === 'private' && (
                         <button
                           type="button"
-                          onClick={() => copyPrivateLink(evt)}
-                          className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200 font-bold"
+                          onClick={() => handleDeleteEvent(evt)}
+                          className="p-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 shrink-0"
+                          title="Delete Event"
                         >
-                          {copiedEventId === evt.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                          <span>{copiedEventId === evt.id ? 'Copied!' : 'Copy Secret Link'}</span>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                      </div>
+
+                      {/* Organizer Details Box */}
+                      <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={
+                              orgProfile?.avatarUrl ||
+                              `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(evt.organizerName || 'Organizer')}`
+                            }
+                            alt={evt.organizerName}
+                            className="w-7 h-7 rounded-lg border border-slate-200 bg-slate-50 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-900 truncate">{evt.organizerName}</span>
+                              {orgProfile && (
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-50 text-nerdBlue border border-blue-200">
+                                  {orgProfile.role.replace('_', ' ')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {evt.organizerOrg || orgProfile?.college || 'Nerds Room Community'}
+                            </div>
+                          </div>
+                        </div>
+                        {orgEmail && (
+                          <div className="text-[11px] text-slate-600 flex items-center gap-1.5 break-all">
+                            <Mail className="w-3 h-3 text-nerdBlue shrink-0" />
+                            <span>{orgEmail}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-400 font-mono">
+                          <span className="truncate">ID: {evt.organizerId || 'legacy'}</span>
+                          {coAdmins.length > 0 && (
+                            <span className="text-purple-700 font-sans font-bold">
+                              +{coAdmins.length} Co-Admin{coAdmins.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2">
+                        <select
+                          value={evt.approvalStatus}
+                          onChange={(e) => handleStatusChange(evt.id, e.target.value as EventApprovalStatus)}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold border ${
+                            evt.approvalStatus === 'approved'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                              : evt.approvalStatus === 'private'
+                              ? 'bg-amber-50 border-amber-300 text-amber-800'
+                              : 'bg-red-50 border-red-300 text-red-800'
+                          }`}
+                        >
+                          <option value="approved">Approved (Live on Site)</option>
+                          <option value="private">Private (Link Only)</option>
+                          <option value="rejected">Rejected (Hidden)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => openManageAdminsModal(evt)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-bold"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Admins ({1 + coAdmins.length})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingEvent(evt)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-nerdBlue font-bold"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit / Slug</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeatured(evt.id, evt.isFeatured)}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border font-bold ${
+                            evt.isFeatured
+                              ? 'bg-amber-100 border-amber-300 text-amber-900'
+                              : 'bg-white border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          <Star className={`w-3.5 h-3.5 ${evt.isFeatured ? 'fill-amber-500 text-amber-500' : ''}`} />
+                          <span>{evt.isFeatured ? 'Featured' : 'Feature'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onInspectEvent(evt)}
+                          className="px-3 py-1.5 rounded-xl bg-nerdBlue text-white font-bold ml-auto"
+                        >
+                          Inspect
+                        </button>
+
+                        {evt.approvalStatus === 'private' && (
+                          <button
+                            type="button"
+                            onClick={() => copyPrivateLink(evt)}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200 font-bold"
+                          >
+                            {copiedEventId === evt.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedEventId === evt.id ? 'Copied!' : 'Copy Secret Link'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Desktop Events Table */}
@@ -594,15 +751,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-4">Event Details &amp; URL Slug</th>
-                      <th className="py-3 px-4">Organizer</th>
+                      <th className="py-3 px-4">Organizer Details &amp; Admins</th>
                       <th className="py-3 px-4">Visibility Status</th>
                       <th className="py-3 px-4">Feature on Site</th>
                       <th className="py-3 px-4">Actions / Customize</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredEvents.map((evt) => (
-                      <tr key={evt.id} className="hover:bg-slate-50/70 transition-colors">
+                    {filteredEvents.map((evt) => {
+                      const orgProfile = findOrganizerProfile(evt);
+                      const orgEmail = evt.organizerContact || orgProfile?.email || '';
+                      const coAdmins = evt.coAdmins || [];
+
+                      return (
+                      <tr key={evt.id} className="hover:bg-slate-50/70 transition-colors align-top">
                         
                         {/* Event Info */}
                         <td className="py-3.5 px-4">
@@ -616,10 +778,73 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           </div>
                         </td>
 
-                        {/* Organizer */}
-                        <td className="py-3.5 px-4 font-medium text-slate-700">
-                          <div>{evt.organizerName}</div>
-                          <div className="text-[10px] text-slate-400">ID: {evt.organizerId}</div>
+                        {/* Organizer Details */}
+                        <td className="py-3.5 px-4 font-medium text-slate-700 min-w-[230px]">
+                          <div className="flex items-start gap-2.5">
+                            <img
+                              src={
+                                orgProfile?.avatarUrl ||
+                                `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(evt.organizerName || 'Organizer')}`
+                              }
+                              alt={evt.organizerName}
+                              className="w-8 h-8 rounded-xl border border-slate-200 bg-slate-50 shrink-0 mt-0.5"
+                            />
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900">{evt.organizerName}</span>
+                                {orgProfile && (
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-50 text-nerdBlue border border-blue-200">
+                                    {orgProfile.role.replace('_', ' ')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-600 flex items-center gap-1">
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate max-w-[200px]">
+                                  {evt.organizerOrg || orgProfile?.college || 'Nerds Room Community'}
+                                </span>
+                              </div>
+                              {orgEmail ? (
+                                <a
+                                  href={`mailto:${orgEmail}`}
+                                  className="text-[11px] text-nerdBlue hover:underline flex items-center gap-1 break-all"
+                                >
+                                  <Mail className="w-3 h-3 shrink-0" />
+                                  <span>{orgEmail}</span>
+                                </a>
+                              ) : (
+                                <div className="text-[10px] text-slate-400 italic">No contact email saved</div>
+                              )}
+                              <div className="text-[10px] text-slate-400 font-mono flex flex-wrap items-center gap-1.5">
+                                <span>ID: {evt.organizerId || 'n/a'}</span>
+                                {orgProfile?.githubHandle && (
+                                  <span>• @{orgProfile.githubHandle}</span>
+                                )}
+                              </div>
+
+                              {coAdmins.length > 0 && (
+                                <div className="pt-1 flex flex-wrap items-center gap-1">
+                                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
+                                    +{coAdmins.length} Co-Admin{coAdmins.length > 1 ? 's' : ''}
+                                  </span>
+                                  {coAdmins.slice(0, 2).map((adminEmail) => (
+                                    <span
+                                      key={adminEmail}
+                                      className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]"
+                                      title={adminEmail}
+                                    >
+                                      {adminEmail}
+                                    </span>
+                                  ))}
+                                  {coAdmins.length > 2 && (
+                                    <span className="text-[10px] text-purple-700 font-bold">
+                                      +{coAdmins.length - 2} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </td>
 
                         {/* Status Dropdown */}
@@ -662,6 +887,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
+                              onClick={() => openManageAdminsModal(evt)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold transition-colors"
+                              title="View Organizer Details & Add Co-Admins for this Event"
+                            >
+                              <UserPlus className="w-3.5 h-3.5 text-purple-700" />
+                              <span>Admins ({1 + coAdmins.length})</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setEditingEvent(evt)}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-nerdBlue border border-blue-200 font-bold transition-colors"
                               title="Edit Round Titles, Custom URL Slug, Banner & Details"
@@ -698,7 +932,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         </td>
 
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -866,13 +1101,36 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {profiles.map((user) => (
+              {profiles.map((user) => {
+                const emailLower = user.email.trim().toLowerCase();
+                const organizedCount = events.filter(
+                  (e) =>
+                    e.organizerId === user.id ||
+                    (e.organizerContact || '').trim().toLowerCase() === emailLower
+                ).length;
+                const coAdminCount = events.filter((e) =>
+                  (e.coAdmins || []).some((a) => a.toLowerCase() === emailLower)
+                ).length;
+
+                return (
                 <div key={user.id} className="p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-xl border border-slate-200 bg-slate-50 shrink-0" />
                     <div className="min-w-0">
                       <h4 className="font-bold text-slate-900 text-sm truncate">{user.name}</h4>
                       <span className="text-xs text-slate-500 block truncate">{user.email}</span>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {organizedCount > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-nerdBlue border border-blue-200">
+                            Host: {organizedCount}
+                          </span>
+                        )}
+                        {coAdminCount > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
+                            Co-Admin: {coAdminCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -889,7 +1147,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     <span className="text-[11px] font-bold text-emerald-700">Synced</span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1012,6 +1271,244 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {managingAdminsEvent && (() => {
+        const orgProfile = findOrganizerProfile(managingAdminsEvent);
+        const primaryEmail = (
+          managingAdminsEvent.organizerContact ||
+          orgProfile?.email ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+        const coAdmins = managingAdminsEvent.coAdmins || [];
+        const availableProfiles = profiles.filter((p) => {
+          const emailLower = p.email.trim().toLowerCase();
+          return emailLower !== primaryEmail && !coAdmins.includes(emailLower);
+        });
+
+        return (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+            <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92dvh] flex flex-col text-xs">
+              {/* Modal Header */}
+              <div className="shrink-0 bg-gradient-to-r from-nerdDark via-blue-950 to-nerdBlue px-5 py-4 text-white flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-nerdLime">
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Organizer Details &amp; Event Admins</span>
+                  </div>
+                  <h3 className="text-base font-black truncate mt-0.5">{managingAdminsEvent.title}</h3>
+                  <div className="text-[11px] font-mono text-blue-200 truncate">/e/{managingAdminsEvent.slug}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setManagingAdminsEvent(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 space-y-5 flex-1 overflow-y-auto">
+                {/* Primary Organizer Full Card */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Primary Event Organizer
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={
+                        orgProfile?.avatarUrl ||
+                        `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
+                          managingAdminsEvent.organizerName || 'Organizer'
+                        )}`
+                      }
+                      alt={managingAdminsEvent.organizerName}
+                      className="w-11 h-11 rounded-xl border border-slate-200 bg-white shrink-0"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-sm text-slate-900">
+                          {managingAdminsEvent.organizerName}
+                        </span>
+                        {orgProfile && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-nerdBlue">
+                            {orgProfile.role.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-slate-600 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>
+                          {managingAdminsEvent.organizerOrg ||
+                            orgProfile?.college ||
+                            'Nerds Room Community'}
+                        </span>
+                      </div>
+                      {(managingAdminsEvent.organizerContact || orgProfile?.email) && (
+                        <div className="text-nerdBlue font-semibold flex items-center gap-1.5 break-all">
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span>{managingAdminsEvent.organizerContact || orgProfile?.email}</span>
+                        </div>
+                      )}
+                      <div className="text-[11px] text-slate-400 font-mono flex flex-wrap gap-2">
+                        <span>User ID: {managingAdminsEvent.organizerId || 'n/a'}</span>
+                        {orgProfile?.githubHandle && <span>• GitHub: @{orgProfile.githubHandle}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Co-Admins */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-black text-slate-900 text-sm">
+                      Assigned Event Co-Admins ({coAdmins.length})
+                    </h4>
+                    <span className="text-[11px] text-slate-500">
+                      Can edit rounds, slug, &amp; manage attendees
+                    </span>
+                  </div>
+
+                  {coAdmins.length === 0 ? (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-slate-500 text-center">
+                      No additional co-admins assigned to this event yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {coAdmins.map((adminEmail) => {
+                        const matched = profiles.find(
+                          (p) => p.email.trim().toLowerCase() === adminEmail.toLowerCase()
+                        );
+                        return (
+                          <div
+                            key={adminEmail}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-sm"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={
+                                  matched?.avatarUrl ||
+                                  `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
+                                    matched?.name || adminEmail
+                                  )}`
+                                }
+                                alt={matched?.name || adminEmail}
+                                className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-50 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 truncate">
+                                  {matched?.name || adminEmail}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                                  <span>{adminEmail}</span>
+                                  {!matched && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                      Access ready on sign-in
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={savingAdmins}
+                              onClick={() => handleRemoveCoAdminEmail(adminEmail)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold shrink-0 disabled:opacity-50"
+                              title="Remove co-admin"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add New Event Admin */}
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-3">
+                  <div className="font-black text-purple-950 text-xs flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-purple-700" />
+                    <span>Add Admin to Manage This Event</span>
+                  </div>
+
+                  {availableProfiles.length > 0 && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        value={selectedProfileEmail}
+                        onChange={(e) => setSelectedProfileEmail(e.target.value)}
+                        className="flex-1 bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-nerdBlue"
+                      >
+                        <option value="">Select a registered member...</option>
+                        {availableProfiles.map((p) => (
+                          <option key={p.id} value={p.email}>
+                            {p.name} ({p.email}) — {p.role.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={!selectedProfileEmail || savingAdmins}
+                        onClick={() => handleAddCoAdminEmail(selectedProfileEmail)}
+                        className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shrink-0 disabled:opacity-50"
+                      >
+                        {savingAdmins ? 'Saving...' : '+ Add Member'}
+                      </button>
+                    </div>
+                  )}
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddCoAdminEmail(newAdminEmail);
+                    }}
+                    className="flex flex-col sm:flex-row gap-2"
+                  >
+                    <input
+                      type="email"
+                      value={newAdminEmail}
+                      onChange={(e) => {
+                        setNewAdminEmail(e.target.value);
+                        if (adminSaveMsg) setAdminSaveMsg(null);
+                      }}
+                      placeholder="Or enter any email (e.g. colead@gmail.com)"
+                      className="flex-1 bg-white border border-purple-200 rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-900 focus:outline-none focus:border-nerdBlue"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newAdminEmail.trim() || savingAdmins}
+                      className="px-4 py-2 rounded-xl bg-nerdBlue hover:bg-blue-800 text-white font-bold text-xs shrink-0 disabled:opacity-50"
+                    >
+                      {savingAdmins ? 'Saving...' : '+ Add by Email'}
+                    </button>
+                  </form>
+                </div>
+
+                {adminSaveMsg && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-start gap-2 ${
+                      adminSaveMsg.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-700'
+                    }`}
+                  >
+                    {adminSaveMsg.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    )}
+                    <span>{adminSaveMsg.text}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {editingEvent && (
         <EditEventModal

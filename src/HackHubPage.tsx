@@ -376,12 +376,7 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   };
 
   const canEditSelectedEvent = Boolean(
-    selectedEvent &&
-      currentUser &&
-      (hackApi.isMasterAdminAuthenticated() ||
-        selectedEvent.organizerId === currentUser.id ||
-        (selectedEvent.organizerContact &&
-          selectedEvent.organizerContact.toLowerCase() === currentUser.email.toLowerCase()))
+    selectedEvent && currentUser && hackApi.canManageEvent(selectedEvent, currentUser)
   );
 
   const urlParams = getUrlParams();

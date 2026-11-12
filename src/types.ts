@@ -49,6 +49,7 @@ export interface HackEvent {
   organizerName: string;
   organizerOrg?: string;
   organizerContact?: string;
+  coAdmins?: string[];
   coverUrl: string;
   startTime: string;
   endTime: string;

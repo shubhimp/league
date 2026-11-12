@@ -454,10 +454,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       >
                         <div className="p-5">
                           {/* Status Badge */}
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-slate-100 text-slate-800">
-                              {evt.eventType}
-                            </span>
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-slate-100 text-slate-800">
+                                {evt.eventType}
+                              </span>
+                              {evt.organizerId !== currentUser.id && (
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200">
+                                  Co-Admin
+                                </span>
+                              )}
+                            </div>
 
                             {isApproved && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">

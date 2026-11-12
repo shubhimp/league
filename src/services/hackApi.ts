@@ -40,8 +40,76 @@ const LEGACY_DEMO_EVENT_IDS = new Set(['evt_hack_01', 'evt_hack_02']);
 const LEGACY_DEMO_USER_IDS = new Set(['usr_student_01', 'usr_org_01']);
 const LEGACY_DEMO_RSVP_IDS = new Set(['rsvp_demo_01']);
 
+const EVENT_ADMINS_SCHEDULE_KEY = '__event_admins__';
+
+function normalizeEmailList(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const item of list) {
+    if (typeof item !== 'string') continue;
+    const email = item.trim().toLowerCase();
+    if (!email || !email.includes('@') || seen.has(email)) continue;
+    seen.add(email);
+    cleaned.push(email);
+  }
+  return cleaned;
+}
+
+function extractScheduleAndCoAdmins(
+  rawSchedule: unknown,
+  rawCoAdminsColumn?: unknown
+): { schedule: HackEvent['schedule']; coAdmins: string[] } {
+  const items = Array.isArray(rawSchedule) ? rawSchedule : [];
+  const visibleSchedule: HackEvent['schedule'] = [];
+  let embeddedAdmins: string[] = [];
+
+  for (const item of items) {
+    if (item && typeof item === 'object' && (item as any).time === EVENT_ADMINS_SCHEDULE_KEY) {
+      try {
+        const parsed = JSON.parse(String((item as any).speaker || '[]'));
+        embeddedAdmins = [...embeddedAdmins, ...normalizeEmailList(parsed)];
+      } catch {
+        // Ignore malformed system metadata entry
+      }
+    } else if (item) {
+      visibleSchedule.push(item);
+    }
+  }
+
+  const coAdmins = normalizeEmailList([
+    ...embeddedAdmins,
+    ...(Array.isArray(rawCoAdminsColumn) ? rawCoAdminsColumn : []),
+  ]);
+
+  return { schedule: visibleSchedule, coAdmins };
+}
+
+function mergeScheduleWithCoAdmins(
+  schedule: HackEvent['schedule'] | undefined,
+  coAdmins: string[] | undefined
+): HackEvent['schedule'] {
+  const cleanSchedule = (Array.isArray(schedule) ? schedule : []).filter(
+    (item) => !item || item.time !== EVENT_ADMINS_SCHEDULE_KEY
+  );
+  const normalized = normalizeEmailList(coAdmins);
+  if (normalized.length === 0) {
+    return cleanSchedule;
+  }
+  return [
+    ...cleanSchedule,
+    {
+      time: EVENT_ADMINS_SCHEDULE_KEY,
+      title: 'Event Co-Admins',
+      track: 'system',
+      speaker: JSON.stringify(normalized),
+    },
+  ];
+}
+
 // Row <-> Domain Mappers for Supabase snake_case columns
 function mapRowToEvent(row: any): HackEvent {
+  const { schedule, coAdmins } = extractScheduleAndCoAdmins(row.schedule, row.event_admins);
   return {
     id: row.id,
     slug: row.slug,
@@ -57,6 +125,7 @@ function mapRowToEvent(row: any): HackEvent {
     organizerName: row.organizer_name || 'Nerds Room Community',
     organizerOrg: row.organizer_org || 'Nerds Room Lead Organizer',
     organizerContact: row.organizer_contact || '',
+    coAdmins,
     coverUrl:
       row.cover_url ||
       'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
@@ -68,7 +137,7 @@ function mapRowToEvent(row: any): HackEvent {
     maxCapacity: row.max_capacity || 300,
     tags: Array.isArray(row.tags) ? row.tags : [],
     prizes: Array.isArray(row.prizes) ? row.prizes : [],
-    schedule: Array.isArray(row.schedule) ? row.schedule : [],
+    schedule,
     rounds: Array.isArray(row.rounds) ? row.rounds : [],
     importantLinks: Array.isArray(row.important_links) ? row.important_links : [],
     rsvpCount: row.rsvp_count ?? 0,
@@ -100,7 +169,7 @@ function mapEventToRow(evt: HackEvent) {
     max_capacity: evt.maxCapacity,
     tags: evt.tags,
     prizes: evt.prizes,
-    schedule: evt.schedule,
+    schedule: mergeScheduleWithCoAdmins(evt.schedule, evt.coAdmins),
     rounds: evt.rounds,
     important_links: evt.importantLinks,
     rsvp_count: evt.rsvpCount ?? 0,
@@ -768,14 +837,29 @@ class HackApiService {
     return this.fetchAllEventsRaw();
   }
 
+  public canManageEvent(event: HackEvent | null | undefined, user?: UserAccount | null): boolean {
+    if (!event) return false;
+    if (this.isMasterAdminAuthenticated()) return true;
+    const actor = user ?? this.currentUser;
+    if (!actor) return false;
+    if (actor.role === 'master_admin' || actor.id === 'usr_admin_01') return true;
+    if (event.organizerId && event.organizerId === actor.id) return true;
+    const email = (actor.email || '').trim().toLowerCase();
+    if (!email) return false;
+    if (event.organizerContact?.trim().toLowerCase() === email) return true;
+    if (Array.isArray(event.coAdmins) && event.coAdmins.some((a) => a.toLowerCase() === email)) {
+      return true;
+    }
+    return false;
+  }
+
   public async getOrganizerEvents(organizerId: string): Promise<HackEvent[]> {
     const all = await this.fetchAllEventsRaw();
-    const userEmail = (this.currentUser?.email || '').toLowerCase();
     return all.filter(
       (e) =>
         e.organizerId === organizerId ||
         organizerId === 'usr_admin_01' ||
-        (Boolean(userEmail) && e.organizerContact?.toLowerCase() === userEmail)
+        this.canManageEvent(e, this.currentUser)
     );
   }
 
@@ -800,13 +884,11 @@ class HackApiService {
     if (event.approvalStatus === 'approved') return event;
     if (
       event.approvalStatus === 'private' &&
-      (accessCode === event.privateAccessCode ||
-        this.isMasterAdminAuthenticated() ||
-        this.currentUser?.id === event.organizerId)
+      (accessCode === event.privateAccessCode || this.canManageEvent(event, this.currentUser))
     ) {
       return event;
     }
-    if (this.isMasterAdminAuthenticated() || this.currentUser?.id === event.organizerId) {
+    if (this.canManageEvent(event, this.currentUser)) {
       return event;
     }
     return null;
@@ -891,6 +973,7 @@ class HackApiService {
       organizerName: eventData.organizerName || user.name,
       organizerOrg: eventData.organizerOrg || user.college || 'Nerds Room Community',
       organizerContact: eventData.organizerContact || user.email,
+      coAdmins: normalizeEmailList(eventData.coAdmins),
       coverUrl:
         eventData.coverUrl ||
         'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
@@ -965,6 +1048,10 @@ class HackApiService {
       ...updates,
       id: existing.id,
       slug: cleanSlug,
+      coAdmins:
+        updates.coAdmins !== undefined
+          ? normalizeEmailList(updates.coAdmins)
+          : normalizeEmailList(existing.coAdmins),
       rounds: Array.isArray(updates.rounds)
         ? updates.rounds.map((r, i) => ({ ...r, roundNumber: i + 1 }))
         : existing.rounds,
@@ -983,8 +1070,10 @@ class HackApiService {
       cover_url: merged.coverUrl,
       organizer_name: merged.organizerName,
       organizer_org: merged.organizerOrg || 'Nerds Room Community',
+      organizer_contact: merged.organizerContact || '',
       tags: merged.tags,
       prizes: merged.prizes,
+      schedule: mergeScheduleWithCoAdmins(merged.schedule, merged.coAdmins),
       rounds: merged.rounds,
       important_links: merged.importantLinks,
       approval_status: merged.approvalStatus,
@@ -1017,6 +1106,49 @@ class HackApiService {
       return { event: saved };
     } catch (err: any) {
       return { error: err?.message || 'Unable to save event changes.' };
+    }
+  }
+
+  public async updateEventCoAdmins(
+    eventId: string,
+    coAdmins: string[]
+  ): Promise<{ event?: HackEvent; error?: string }> {
+    const allEvents = await this.fetchAllEventsRaw();
+    const existing = allEvents.find((e) => e.id === eventId);
+    if (!existing) {
+      return { error: 'Event not found.' };
+    }
+
+    const cleanedAdmins = normalizeEmailList(coAdmins);
+    const nextSchedule = mergeScheduleWithCoAdmins(existing.schedule, cleanedAdmins);
+    const updatedLocal: HackEvent = {
+      ...existing,
+      coAdmins: cleanedAdmins,
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('league_events')
+        .update({ schedule: nextSchedule })
+        .eq('id', eventId)
+        .select('*')
+        .maybeSingle();
+
+      if (error) {
+        return { error: error.message || 'Failed to save event admins in Supabase.' };
+      }
+
+      const saved = data ? mapRowToEvent(data) : updatedLocal;
+      if (typeof window !== 'undefined') {
+        const cached: HackEvent[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS) || '[]');
+        const nextList = cached.some((e) => e.id === eventId)
+          ? cached.map((e) => (e.id === eventId ? saved : e))
+          : [saved, ...cached];
+        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(nextList));
+      }
+      return { event: saved };
+    } catch (err: any) {
+      return { error: err?.message || 'Unable to save event admins.' };
     }
   }
 
