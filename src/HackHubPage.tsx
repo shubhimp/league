@@ -12,6 +12,7 @@ import { ProjectShipyardModal } from './components/ProjectShipyardModal';
 import { OrganizerCheckInModal } from './components/OrganizerCheckInModal';
 import { AuthModal } from './components/AuthModal';
 import { EmailConfirmGate } from './components/EmailConfirmGate';
+import { LegalPage } from './components/LegalPage';
 import { CreateEventModal } from './components/CreateEventModal';
 import { EditEventModal } from './components/EditEventModal';
 import { hackApi, supabase } from './services/hackApi';
@@ -24,10 +25,10 @@ interface HackHubPageProps {
 }
 
 export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
-  // Check URL parameters & clean paths (/e/<slug>, /core-admin, /auth/confirm) for deep-links
+  // Check URL parameters & clean paths (/e/<slug>, /core-admin, /auth/confirm, /privacy, /terms) for deep-links
   const getUrlParams = () => {
     if (typeof window === 'undefined') {
-      return { eventSlug: null, secretCode: null, tab: null, confirmTokenHash: null, confirmType: null };
+      return { eventSlug: null, secretCode: null, tab: null, confirmTokenHash: null, confirmType: null, legal: null as 'privacy' | 'terms' | null };
     }
     const params = new URLSearchParams(window.location.search);
     const normalizedPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
@@ -35,13 +36,26 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
     const isCoreAdminPath = normalizedPath === '/core-admin' || normalizedPath === '/admin';
     const tokenHash = params.get('token_hash');
     const otpType = (params.get('type') as EmailOtpType | null) || (normalizedPath === '/auth/confirm' ? 'signup' : null);
+    const legal: 'privacy' | 'terms' | null =
+      normalizedPath === '/privacy' ? 'privacy' : normalizedPath === '/terms' ? 'terms' : null;
     return {
       eventSlug: params.get('event') || (pathMatch ? decodeURIComponent(pathMatch[1]) : null),
       secretCode: params.get('secret') || params.get('access'),
       tab: isCoreAdminPath ? ('admin-panel' as NavTab) : (params.get('tab') as NavTab | null),
       confirmTokenHash: tokenHash,
       confirmType: otpType,
+      legal,
     };
+  };
+
+  const [legalMode, setLegalMode] = useState<'privacy' | 'terms' | null>(() => getUrlParams().legal);
+
+  const openLegalPage = (mode: 'privacy' | 'terms') => {
+    setLegalMode(mode);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ legal: mode }, '', `/${mode}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const [confirmParams, setConfirmParams] = useState<{ tokenHash: string; type: EmailOtpType } | null>(() => {
@@ -239,7 +253,9 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   // Handle browser Back/Forward navigation smoothly
   useEffect(() => {
     const handlePopState = async () => {
-      const { eventSlug, secretCode, tab } = getUrlParams();
+      const { eventSlug, secretCode, tab, legal } = getUrlParams();
+      setLegalMode(legal);
+      if (legal) return;
       if (eventSlug) {
         const target = await hackApi.getEventBySlug(eventSlug, secretCode || undefined);
         setSelectedEvent(target);
@@ -369,6 +385,20 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
   );
 
   const urlParams = getUrlParams();
+
+  if (legalMode) {
+    return (
+      <LegalPage
+        mode={legalMode}
+        onBack={() => {
+          setLegalMode(null);
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+      />
+    );
+  }
 
   if (confirmParams) {
     return (
@@ -503,11 +533,11 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
 
                 <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black tracking-tight text-nerdDark leading-[1.1]">
                   Sign In to Enter{' '}
-                  <span className="text-nerdBlue block sm:inline">Nerds Room League</span>
+                  <span className="text-nerdBlue block sm:inline">League by Nerds Room</span>
                 </h1>
 
                 <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-lg mx-auto lg:mx-0">
-                  Access to events, hackathons, passes, matchmaking teams, project shipyard, and the organizer portal is restricted to signed-in Nerds Room accounts.
+                  Access to events, hackathons, passes, matchmaking teams, project shipyard, and the organizer portal on League by Nerds Room is restricted to signed-in accounts.
                 </p>
 
                 <div className="hidden sm:grid grid-cols-3 gap-2.5 pt-1 max-w-lg mx-auto lg:mx-0 text-left">
@@ -538,10 +568,32 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
         )}
 
         <footer className="border-t border-slate-200 bg-white py-3.5 px-4 text-center text-xs text-slate-500 font-sans">
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-bold">
-            <span className="text-nerdDark font-black">nerds room<span className="text-nerdLime">.</span></span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 font-bold">
+            <span className="text-nerdDark font-black">League by Nerds Room<span className="text-nerdLime">.</span></span>
             <span>•</span>
             <span className="text-nerdBlue">league.nerdsroom.org</span>
+            <span>•</span>
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                openLegalPage('privacy');
+              }}
+              className="text-slate-500 hover:text-nerdBlue transition-colors font-medium"
+            >
+              Privacy Policy
+            </a>
+            <span>•</span>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                openLegalPage('terms');
+              }}
+              className="text-slate-500 hover:text-nerdBlue transition-colors font-medium"
+            >
+              Terms
+            </a>
           </div>
         </footer>
       </div>
@@ -996,14 +1048,34 @@ export const HackHubPage: React.FC<HackHubPageProps> = ({ onBackToMain }) => {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-8 px-4 text-center text-xs text-slate-500 font-sans">
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mb-1 font-bold">
-          <span className="text-nerdDark font-black">nerds room<span className="text-nerdLime">.</span></span>
+          <span className="text-nerdDark font-black">League by Nerds Room<span className="text-nerdLime">.</span></span>
           <span>•</span>
           <span className="text-nerdBlue">league.nerdsroom.org</span>
-          <span className="hidden sm:inline">•</span>
-          <span className="hidden sm:inline">Powered by Nerds Room Infrastructure</span>
+          <span>•</span>
+          <a
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              openLegalPage('privacy');
+            }}
+            className="text-slate-500 hover:text-nerdBlue transition-colors font-medium"
+          >
+            Privacy Policy
+          </a>
+          <span>•</span>
+          <a
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              openLegalPage('terms');
+            }}
+            className="text-slate-500 hover:text-nerdBlue transition-colors font-medium"
+          >
+            Terms
+          </a>
         </div>
         <p className="text-[11px] text-slate-400">
-          Open-Source Multi-Round Event Platform for Hackathons, Ideathons & Community Sprints.
+          Open-Source Multi-Round Event Platform for Hackathons, Ideathons &amp; Community Sprints.
         </p>
       </footer>
 

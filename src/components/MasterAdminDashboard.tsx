@@ -47,10 +47,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [editingEvent, setEditingEvent] = useState<HackEvent | null>(null);
   const [cloudHealth, setCloudHealth] = useState<InfrastructureHealth | null>(null);
   const [cloudStatusOpen, setCloudStatusOpen] = useState(false);
+  const [whiteLabelGoogleLive, setWhiteLabelGoogleLive] = useState<boolean | null>(null);
 
   const loadCloudHealth = async () => {
-    const health = await hackApi.checkClusterHealth();
+    const [health, googleProbe] = await Promise.all([
+      hackApi.checkClusterHealth(),
+      fetch('/api/google-auth?check=1')
+        .then((r) => (r.ok ? r.json() : { enabled: false }))
+        .catch(() => ({ enabled: false })),
+    ]);
     setCloudHealth(health);
+    setWhiteLabelGoogleLive(Boolean(googleProbe?.enabled));
   };
 
   const loadAllData = async () => {
@@ -974,6 +981,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 </span>
                 <span className={`font-black text-[11px] ${cloudHealth?.cloudinaryConfigured ? 'text-emerald-700' : 'text-blue-700'}`}>
                   {!cloudHealth ? 'CHECKING...' : cloudHealth.cloudinaryConfigured ? '● SIGNED UPLOADS LIVE' : '● CONNECTED'}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl border bg-slate-50 border-slate-200 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-bold text-slate-800">
+                  <Globe className="w-4 h-4 text-nerdBlue" />
+                  <span>Custom Google OAuth (league.nerdsroom.org)</span>
+                </span>
+                <span className={`font-black text-[11px] ${whiteLabelGoogleLive ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {whiteLabelGoogleLive === null
+                    ? 'CHECKING...'
+                    : whiteLabelGoogleLive
+                    ? '● WHITE-LABEL ACTIVE'
+                    : '● SUPABASE FALLBACK (ADD GOOGLE KEYS)'}
                 </span>
               </div>
             </div>
