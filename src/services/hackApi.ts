@@ -249,6 +249,16 @@ class HackApiService {
   }): Promise<{ user?: UserAccount; requiresConfirmation?: boolean; error?: string }> {
     const emailClean = params.email.trim().toLowerCase();
     const assignedRole = params.role || 'student';
+    const signupDate =
+      new Date().toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata',
+      }) + ' IST';
     const { data, error } = await supabase.auth.signUp({
       email: emailClean,
       password: params.password,
@@ -257,6 +267,7 @@ class HackApiService {
         data: {
           full_name: params.name.trim(),
           role: assignedRole,
+          signup_date: signupDate,
         },
       },
     });
